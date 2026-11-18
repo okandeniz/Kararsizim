@@ -1,3 +1,5 @@
+import unicodedata
+
 from django import forms
 from django.db import transaction
 
@@ -10,9 +12,29 @@ from .models import (
     Poll,
 )
 
+# Görünmez veya yönü değiştiren karakterler. ZWJ/ZWNJ (U+200D/U+200C) bilerek yok: emoji dizileri
+# (👨‍👩‍👧) ve bazı yazı sistemleri bunlara ihtiyaç duyar.
+INVISIBLE_CHARS = frozenset(
+    {"​", "⁠", "﻿"}  # sıfır genişlikli boşluk, word joiner, BOM
+    | {chr(code) for code in range(0x202A, 0x202F)}  # çift yönlü gömme/geçersiz kılma
+    | {chr(code) for code in range(0x2066, 0x206A)}  # çift yönlü izolasyon
+)
+
 
 def normalize_text(value: str) -> str:
-    """Baştaki/sondaki boşlukları kırpar, aradaki boşluk/satır sonlarını tek boşluğa indirir."""
+    """Kullanıcı metnini kaydedilebilir hale getirir.
+
+    - NFC'ye çevirir (bileşik/ayrık aksan farkı tekrar denetimini atlatamaz).
+    - NUL ve diğer kontrol karakterlerini (Postgres NUL'u reddeder) ve görünmez/yön değiştiren
+      karakterleri siler. Boşluk benzeri karakterler (satır sonu, sekme) korunur.
+    - Baştaki/sondaki boşlukları kırpar, aradaki boşlukları tek boşluğa indirir.
+    """
+    value = unicodedata.normalize("NFC", value)
+    value = "".join(
+        char
+        for char in value
+        if char.isspace() or (unicodedata.category(char) != "Cc" and char not in INVISIBLE_CHARS)
+    )
     return " ".join(value.split())
 
 
@@ -44,7 +66,11 @@ class PollForm(forms.Form):
         self.raw_options = self.data.getlist("option") if self.is_bound else []
 
     def clean_question(self):
-        return normalize_text(self.cleaned_data["question"])
+        question = normalize_text(self.cleaned_data["question"])
+        if not question:
+            # Yalnızca görünmez karakterlerden oluşan soru, görünürde boştur.
+            raise forms.ValidationError(self.fields["question"].error_messages["required"])
+        return question
 
     def clean(self):
         cleaned_data = super().clean()

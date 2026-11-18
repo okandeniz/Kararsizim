@@ -9,10 +9,9 @@ bir Django web uygulaması. PROTOTİP aşamasındayız: basit tut, gereksiz soyu
 
 Proje fazlara bölünmüş geliştiriliyor. Tek doğru kaynak: `docs/KARARSIZIM_PLAN.md` (veri modeli
 Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları Bölüm 8). Yalnızca
-ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–3 bitti (iskelet, `accounts.User`, tasarım token'ları,
-kayıt/giriş/çıkış, anket oluşturma). Sıradaki: Faz 4 (akış ve oylama). `polls:feed` hâlâ geçici bir
-sayfa; `polls:detail` seçenekleri yalnızca listeler. Poll/Option/Vote modelleri ve kısıtları hazır, `Vote`
-henüz hiçbir yerde kullanılmıyor.
+ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts.User`, tasarım token'ları,
+kayıt/giriş/çıkış, anket oluşturma, akış ve oylama): yerelde çalışan prototip hazır. Sıradaki: Faz 5
+(Supabase + Vercel). Faz 3–4 henüz `django-reviewer` ile incelenmedi.
 
 ## Ortam (Windows)
 - Sanal ortam `.venv` (Python 3.12). Komutları `.venv\Scripts\python` ile çalıştır
@@ -60,6 +59,9 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
   (boşları at, 2–5 adet, 80 karakter, büyük/küçük harf duyarsız tekrar, boşluk normalizasyonu) `clean()`'de;
   `save(author)` Poll + Option'ları tek `transaction.atomic` içinde yazar (position 0..n-1). Seçenek hataları
   non-field error olarak seçenek grubunun altında gösterilir; girilen değerler `option_slots` ile korunur.
+  `normalize_text` NFC'ye çevirir ve NUL/kontrol ile görünmez/yön değiştiren karakterleri siler (Postgres NUL'u
+  reddeder, SQLite etmez: yerelde görünmeyen 500!). Kullanıcı metni kaydeden yeni alanlar da bundan geçmeli.
+  Admin'de `OptionInlineFormSet` aynı 2–5 kuralını uygular (`min_num`/`max_num` tek başına doğrulamaz).
 - `create` view'ı `login_required_with_message` ile korunur (misafiri `?next=` ile girişe atar ve giriş
   sayfasında mesaj gösterir). Sınırlar `polls/models.py` sabitlerinde (`MAX_OPTIONS` vb.), form ve admin
   aynı sabitleri kullanır.
@@ -67,16 +69,24 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
   (`initPollForm`) açar. Seçenek rengi kutunun `data-position` (1–5) değerinden gelir (CSS'te `--opt`).
   JS × ile silince alttaki değerleri yukarı kaydırır, böylece renk sırası bozulmaz.
 
-**Oy kuralları (Faz 4'te kullanılacak, tasarım kararları plan Bölüm 4–5'te)**
+**Akış ve oylama (`polls/voting.py`, `views.py`, `_poll_*.html`)**
 - Tek oy kuralı veritabanı kısıtıyla korunur: `Vote` üzerinde `(poll, user)` ve `(poll, voter_token)` için
-  koşullu `UniqueConstraint`, ayrıca "user veya voter_token dolu olmalı" `CheckConstraint`.
-  View `IntegrityError`'ı yakalar; doğrulama yalnızca view'da bırakılmaz. `Option.position < 5` de DB
-  `CheckConstraint`'iyle korunur. `Vote.clean()` seçeneğin ankete ait olmasını kontrol eder (DB bunu
-  zorlamaz; view'da da doğrula).
-- Anonim oy için imzalı `voter_id` çerezi (UUID). Oy URL'si hem normal form (302) hem `fetch`
-  (`X-Requested-With: fetch` → `_poll_results.html` parçası) isteğine cevap verir; kart ve sonuç parçaları
-  akış ve detay sayfasında ortaktır.
-- URL isimleri `polls:feed|detail|vote|create`, `accounts:register|login|logout` (son üçü Faz 2'de hazır).
+  koşullu `UniqueConstraint`, ayrıca "user veya voter_token dolu olmalı" `CheckConstraint`. `vote` view'ı
+  `IntegrityError`'ı yakalar (fetch → 409, form → mesaj + yönlendirme). `Option.position < 5` de DB
+  `CheckConstraint`'iyle korunur. DB, seçeneğin ankete ait olmasını zorlamaz; `vote` view'ı bunu
+  `Option.objects.filter(pk=…, poll=poll)` ile doğrular (değilse 400).
+- Oy sahibi: üye → `user`; anonim → imzalı `voter_id` çerezi (UUID, `salt="kararsizim-voter"`, 1 yıl,
+  httponly, Lax, `secure=not DEBUG`). Bozuk/sahte çerez yok sayılır ve yenisi üretilir. `voter_filter(request)`
+  `Vote` filtresini verir (çerezsiz anonim için `None`).
+- **Sorgu sayısı sabit olmalı:** akış ve detay `attach_results(polls, voter)` kullanır (seçenekler `Prefetch` +
+  `annotate(Count("votes"))`, ziyaretçinin oyları tek sorgu). Toplam/yüzde/lider/seçim Python'da hesaplanır
+  (`poll.results`, `poll.total_votes`, `poll.has_voted`); şablonda sorgu yapma. `test_feed.py` bunu doğrular.
+- `_poll_card.html` hem akışta hem detayda ortak; oy durumuna göre `_poll_vote_form.html` veya
+  `_poll_results.html` gösterir. Oy URL'si normal form (302) ve `fetch` (`X-Requested-With: fetch` →
+  `_poll_results.html` parçası, hata → kısa `text/plain` + 400/409) isteğine cevap verir; JS
+  (`initVoting`) parçayı kartın içine koyar ve çubukları 0'dan doldurur. Form `next` alanı sayfa +
+  `#poll-<id>` taşır.
+- URL isimleri `polls:feed|detail|vote|create`, `accounts:register|login|logout`.
 
 **Üyelik akışı (`accounts/views.py`, `forms.py`)**
 - `next` yönlendirmeleri `safe_next_url()` ile doğrulanır (kayıt ve giriş aynı yardımcıyı kullanır; `LoginView`

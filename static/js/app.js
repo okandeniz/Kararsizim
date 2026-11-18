@@ -101,11 +101,111 @@ function initPollForm() {
     });
   });
 
+  // Çift tıklamayla aynı anketin iki kez oluşmasını önle. Geri tuşuyla dönülürse buton açılır.
+  const submitButton = form.querySelector('button[type="submit"]');
+  form.addEventListener("submit", () => {
+    submitButton.disabled = true;
+  });
+  window.addEventListener("pageshow", () => {
+    submitButton.disabled = false;
+  });
+
   initCounters(form);
   render();
+}
+
+/** Sonuç çubuklarını 0'dan hedef genişliğe doldurur (CSS transition 600ms). */
+function animateBars(scope) {
+  const bars = scope.querySelectorAll(".result__bar");
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  bars.forEach((bar) => {
+    bar.style.width = "0";
+  });
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      bars.forEach((bar) => {
+        bar.style.width = bar.dataset.width + "%";
+      });
+    });
+  });
+}
+
+function showVoteError(body, message) {
+  let box = body.querySelector(".vote-error");
+  if (!box) {
+    box = document.createElement("p");
+    box.className = "vote-error";
+    box.setAttribute("role", "alert");
+    body.prepend(box);
+  }
+  box.textContent = message;
+}
+
+/**
+ * Oy formları: sayfa yenilemeden fetch ile oy verir ve sunucudan gelen sonuç parçasını kartın
+ * içine koyar. JS yoksa form normal POST ile çalışır (sunucu yönlendirir).
+ */
+function initVoting() {
+  document.addEventListener("submit", async (event) => {
+    const form = event.target;
+    if (!(form instanceof HTMLFormElement) || !form.matches("[data-vote-form]")) return;
+
+    const card = form.closest("[data-poll-card]");
+    const body = card && card.querySelector("[data-poll-body]");
+    if (!body) return; // Beklenmedik yapı: normal form gönderimi devam etsin.
+    event.preventDefault();
+    const buttons = form.querySelectorAll("button");
+    const data = new FormData(form);
+    const submitter = event.submitter;
+    if (submitter && submitter.name) data.set(submitter.name, submitter.value);
+
+    body.querySelector(".vote-error")?.remove();
+    buttons.forEach((button) => {
+      button.disabled = true;
+    });
+
+    try {
+      const response = await fetch(form.action, {
+        method: "POST",
+        headers: { "X-CSRFToken": getCookie("csrftoken") || "", "X-Requested-With": "fetch" },
+        body: data,
+        credentials: "same-origin",
+      });
+      const text = await response.text();
+
+      if (!response.ok) {
+        // Sunucu kısa Türkçe düz metin döner; başka bir şey gelirse (ör. CSRF sayfası) genel mesaj.
+        const isPlain = (response.headers.get("Content-Type") || "").startsWith("text/plain");
+        showVoteError(body, isPlain && text ? text : "Bir şeyler ters gitti, tekrar dene.");
+        if (response.status === 409) {
+          // Başka sekme/cihazdan zaten oy verilmiş: butonlar kapalı kalsın, sayfa sonuçları göstersin.
+          setTimeout(() => window.location.reload(), 1500);
+          return;
+        }
+        buttons.forEach((button) => {
+          button.disabled = false;
+        });
+        return;
+      }
+
+      body.innerHTML = text;
+      const results = body.querySelector("[data-results]");
+      const totalEl = card.querySelector("[data-vote-total]");
+      if (results && totalEl) totalEl.textContent = results.dataset.total + " oy";
+      animateBars(body);
+      // Tıklanan buton DOM'dan kalktı; odağı sonuçlara taşı (ekran okuyucu için).
+      if (results) results.focus({ preventScroll: true });
+    } catch {
+      showVoteError(body, "Bağlantı hatası, tekrar dene.");
+      buttons.forEach((button) => {
+        button.disabled = false;
+      });
+    }
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {
   autoHideMessages();
   initPollForm();
+  initVoting();
 });

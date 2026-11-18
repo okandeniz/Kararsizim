@@ -1,0 +1,8 @@
+<form method="post" action="{% url 'polls:vote' poll.pk %}" class="vote-form" data-vote-form>
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}#poll-{{ poll.pk }}">
+  {% for option in poll.results %}
+    <button type="submit" name="option" value="{{ option.id }}" class="vote-option"
+            data-position="{{ option.number }}">{{ option.text }}</button>
+  {% endfor %}
+</form>

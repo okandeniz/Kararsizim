@@ -1,0 +1,22 @@
+{% load humanize %}
+<article class="card poll-card" id="poll-{{ poll.pk }}" data-poll-card>
+  <p class="poll-meta small muted">@{{ poll.author.username }} · {{ poll.created_at|naturaltime }}</p>
+  {% if is_detail %}
+    <h1 class="poll-question">{{ poll.question }}</h1>
+  {% else %}
+    <h2 class="poll-question">{{ poll.question }}</h2>
+  {% endif %}
+
+  <div class="poll-card__body" data-poll-body aria-live="polite">
+    {% if poll.has_voted %}
+      {% include "polls/_poll_results.html" %}
+    {% else %}
+      {% include "polls/_poll_vote_form.html" %}
+    {% endif %}
+  </div>
+
+  <p class="poll-card__footer small muted">
+    <span data-vote-total>{{ poll.total_votes }} oy</span>
+    {% if not is_detail %}· <a href="{% url 'polls:detail' poll.pk %}">Paylaş</a>{% endif %}
+  </p>
+</article>

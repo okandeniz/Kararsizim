@@ -8,4 +8,5 @@ urlpatterns = [
     path("", views.feed, name="feed"),
     path("anket/yeni/", views.create, name="create"),
     path("anket/<int:pk>/", views.detail, name="detail"),
+    path("anket/<int:pk>/oy/", views.vote, name="vote"),
 ]

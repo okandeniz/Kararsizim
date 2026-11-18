@@ -1,0 +1,17 @@
+<div class="results" data-results data-total="{{ poll.total_votes }}" tabindex="-1">
+  {% for result in poll.results %}
+    <div class="result{% if result.is_leader %} result--leader{% endif %}{% if result.is_choice %} result--chosen{% endif %}"
+         data-position="{{ result.number }}">
+      <div class="result__label">
+        <span class="result__text">
+          {% if result.is_choice %}<span class="result__check" title="Senin seçimin"><span class="sr-only">Senin seçimin: </span>✓</span>{% endif %}
+          {{ result.text }}
+        </span>
+        <span class="result__stat">%{{ result.percent }} · {{ result.count }} oy</span>
+      </div>
+      <div class="result__track" aria-hidden="true">
+        <div class="result__bar" style="width: {{ result.percent }}%" data-width="{{ result.percent }}"></div>
+      </div>
+    </div>
+  {% endfor %}
+</div>

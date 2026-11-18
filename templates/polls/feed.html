@@ -1,8 +1,33 @@
 {% extends "base.html" %}
 
 {% block content %}
-  <section class="card card--soft">
-    <h1 class="card__title">Yakında burada anketler olacak 🤔</h1>
-    <p class="muted">kararsızım hazırlanıyor. Çok yakında kararsız kaldığın konuları buradan danışabileceksin.</p>
-  </section>
+  {% if polls %}
+    <div class="poll-list">
+      {% for poll in polls %}
+        {% include "polls/_poll_card.html" %}
+      {% endfor %}
+    </div>
+
+    {% if page_obj.has_other_pages %}
+      <nav class="pagination" aria-label="Sayfalama">
+        {% if page_obj.has_previous %}
+          <a class="btn btn--secondary btn--small" rel="prev" href="?page={{ page_obj.previous_page_number }}">← Önceki</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+        <span class="muted small">Sayfa {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a class="btn btn--secondary btn--small" rel="next" href="?page={{ page_obj.next_page_number }}">Sonraki →</a>
+        {% else %}
+          <span></span>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    <section class="card card--soft empty-state">
+      <h1 class="card__title">Henüz anket yok.</h1>
+      <p class="muted">İlk kararsızlığı sen paylaş! 🤔</p>
+      <a class="btn btn--primary" href="{% url 'polls:create' %}">Anket oluştur</a>
+    </section>
+  {% endif %}
 {% endblock %}

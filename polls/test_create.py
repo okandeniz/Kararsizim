@@ -291,3 +291,48 @@ def test_detail_escapes_html_in_user_content(client, member):
 def test_detail_uses_constant_number_of_queries(client, poll, django_assert_max_num_queries):
     with django_assert_max_num_queries(4):
         client.get(detail_url(poll))
+
+
+# ---------- Görünmez / kontrol karakterleri (incelemeden) ----------
+
+
+def test_nul_and_control_characters_are_stripped_from_options(member_client):
+    # Postgres NUL'u reddeder (500); SQLite kabul eder, bu yüzden metin kaydedilmeden temizlenir.
+    post_poll(member_client, options=["A\x00B", "C\x07D"])
+    assert option_texts(Poll.objects.get()) == ["AB", "CD"]
+
+
+def test_nul_in_question_is_rejected(member_client):
+    response = post_poll(member_client, question="So\x00ru")
+
+    assert response.status_code == 200
+    assert not Poll.objects.exists()
+
+
+def test_zero_width_only_options_count_as_blank(member_client):
+    response = post_poll(member_client, options=["A", "\u200b", "\u200b\u2060\ufeff"])
+    assert_rejected(member_client, response, "En az 2 seçenek yazmalısın.")
+
+
+def test_zero_width_only_question_is_rejected(member_client):
+    response = post_poll(member_client, question="\u200b\u200b")
+    assert_rejected(member_client, response, "Sorunu yazmayı unutma.")
+
+
+def test_bidi_override_characters_are_stripped(member_client):
+    post_poll(member_client, question="\u202eSoru\u202c", options=["\u202eEvet", "Hayır\u2066"])
+
+    poll = Poll.objects.get()
+    assert poll.question == "Soru"
+    assert option_texts(poll) == ["Evet", "Hayır"]
+
+
+def test_duplicate_check_ignores_composed_vs_decomposed_accents(member_client):
+    response = post_poll(member_client, options=["Caf\u00e9", "Cafe\u0301"])
+    assert_rejected(member_client, response, "Aynı seçeneği iki kez yazdın.")
+
+
+def test_zwj_emoji_sequences_are_preserved(member_client):
+    family = "\U0001f468\u200d\U0001f469\u200d\U0001f467"
+    post_poll(member_client, options=[family, "Tek başıma"])
+    assert option_texts(Poll.objects.get())[0] == family
