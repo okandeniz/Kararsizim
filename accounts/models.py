@@ -90,6 +90,13 @@ class User(AbstractUser):
                 name="unique_username_ci",
                 violation_error_message="Bu kullanıcı adı alınmış.",
             ),
+            # save() e-postayı küçük harfe çevirir; bu kısıt bulk_create/update()/ham SQL gibi
+            # save()'i atlayan yollarda da karışık harfli kopyaları veritabanında engeller.
+            models.UniqueConstraint(
+                Lower("email"),
+                name="unique_email_ci",
+                violation_error_message="Bu e-posta ile zaten bir hesap var.",
+            ),
         ]
 
     def __str__(self):

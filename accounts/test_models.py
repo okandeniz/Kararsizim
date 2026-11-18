@@ -93,3 +93,19 @@ def test_email_must_be_unique_regardless_of_case():
     make_user(email="a@example.com", username="ali")
     with pytest.raises(IntegrityError), transaction.atomic():
         User.objects.create_user(email="A@Example.com", username="veli", password="x")
+
+
+def test_email_uniqueness_is_enforced_even_when_save_is_bypassed():
+    # update() save()'i çağırmaz, yani küçük harfe çevirme atlanır; kısıt yine de engellemeli.
+    make_user(email="a@example.com", username="ali")
+    other = make_user(email="b@example.com", username="veli")
+    with pytest.raises(IntegrityError), transaction.atomic():
+        User.objects.filter(pk=other.pk).update(email="A@Example.com")
+
+
+def test_email_uniqueness_is_case_insensitive_in_validation():
+    make_user(email="a@example.com", username="ali")
+    other = User(email="A@Example.com", username="veli")
+    with pytest.raises(ValidationError) as exc_info:
+        other.full_clean(exclude=["password"], validate_constraints=True)
+    assert "Bu e-posta ile zaten bir hesap var." in str(exc_info.value)

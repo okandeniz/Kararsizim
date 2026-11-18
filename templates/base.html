@@ -16,13 +16,17 @@
     <div class="site-header__inner">
       <a class="logo" href="{% url 'polls:feed' %}">kararsızım</a>
       <nav class="site-nav" aria-label="Ana menü">
+        {# "Anket oluştur" Faz 3'te polls:create adresine bağlanacak. #}
         <a class="btn btn--primary btn--small" href="#">Anket oluştur</a>
-        {# Üyelik bağlantıları Faz 2'de gerçek adreslere bağlanacak. #}
         {% if user.is_authenticated %}
           <span class="site-nav__user">@{{ user.username }}</span>
+          <form class="site-nav__form" method="post" action="{% url 'accounts:logout' %}">
+            {% csrf_token %}
+            <button type="submit" class="site-nav__link site-nav__button">Çıkış</button>
+          </form>
         {% else %}
-          <a class="site-nav__link" href="#">Giriş yap</a>
-          <a class="site-nav__link" href="#">Kayıt ol</a>
+          <a class="site-nav__link" href="{% url 'accounts:login' %}">Giriş yap</a>
+          <a class="site-nav__link" href="{% url 'accounts:register' %}">Kayıt ol</a>
         {% endif %}
       </nav>
     </div>

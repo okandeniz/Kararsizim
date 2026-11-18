@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+
+{% block title %}Giriş yap — kararsızım{% endblock %}
+{% block meta_description %}kararsızım hesabına giriş yap.{% endblock %}
+
+{% block content %}
+  <section class="card auth-card">
+    <h1 class="card__title">Tekrar hoş geldin</h1>
+    <p class="muted auth-card__lead">E-postan ve parolanla giriş yap.</p>
+
+    <form method="post" action="{% url 'accounts:login' %}">
+      {% csrf_token %}
+      {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+
+      {% if form.non_field_errors %}
+        <div class="form-errors" role="alert">
+          {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+        </div>
+      {% endif %}
+
+      {% include "accounts/_field.html" with field=form.username %}
+      {% include "accounts/_field.html" with field=form.password %}
+
+      <button type="submit" class="btn btn--primary btn--block">Giriş yap</button>
+    </form>
+
+    <p class="auth-card__alt muted">
+      Hesabın yok mu?
+      <a href="{% url 'accounts:register' %}{% if next %}?next={{ next|urlencode }}{% endif %}">Kayıt ol</a>
+    </p>
+  </section>
+{% endblock %}

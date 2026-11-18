@@ -146,7 +146,24 @@ main.container { flex: 1; }
 }
 .site-nav__link:hover { color: var(--primary); text-decoration: none; }
 
-.site-nav__user { font-weight: 600; color: var(--muted); }
+.site-nav__user {
+  font-weight: 600;
+  color: var(--muted);
+  max-width: 14ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-nav__form { margin: 0; }
+
+.site-nav__button {
+  border: 0;
+  background: none;
+  font-family: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+}
 
 .site-footer {
   border-top: 1px solid var(--border);
@@ -226,7 +243,28 @@ main.container { flex: 1; }
 }
 
 .field__hint { font-size: 0.875rem; color: var(--muted); }
+.field__hint ul { margin: 0; padding-left: 1.2em; }
 .field__error { font-size: 0.875rem; color: var(--danger); }
+.field:has(.field__error) .input { border-color: var(--danger); }
+
+.form-errors {
+  margin-bottom: var(--s4);
+  padding: var(--s3) var(--s4);
+  border-radius: var(--radius);
+  background: var(--danger-tint);
+  color: var(--text);
+  font-weight: 600;
+}
+.form-errors p + p { margin-top: var(--s1); }
+
+.btn--block { width: 100%; }
+
+/* ---------- Üyelik sayfaları ---------- */
+
+.auth-card { max-width: 480px; margin: var(--s5) auto 0; }
+.auth-card__lead { margin-bottom: var(--s5); }
+.auth-card .btn--block { margin-top: var(--s2); }
+.auth-card__alt { margin-top: var(--s5); text-align: center; font-size: 0.95rem; }
 
 /* ---------- Mesajlar (toast) ---------- */
 
@@ -267,5 +305,7 @@ main.container { flex: 1; }
 @media (max-width: 420px) {
   .site-nav { gap: var(--s1); }
   .site-nav__link { padding: 0 var(--s1); font-size: 0.9rem; }
+  .site-nav__button { font-size: 0.9rem; }
+  .site-nav__user { max-width: 9ch; }
   .btn--small { padding: 0 var(--s3); }
 }

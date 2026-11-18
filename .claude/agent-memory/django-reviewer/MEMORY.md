@@ -1,0 +1,1 @@
+- [Auth inceleme kalıpları](project_auth_review_patterns.md) — Faz 2'de bulunan tekrar eden sorunlar ve bilinçli ürün kararları
