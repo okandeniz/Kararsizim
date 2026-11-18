@@ -1,0 +1,66 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(.venv/Scripts/python manage.py *)",
+      "Bash(.venv/Scripts/python -m pytest *)",
+      "Bash(.venv/Scripts/python -m pytest)",
+      "Bash(.venv/Scripts/python -m ruff *)",
+      "Bash(.venv/Scripts/pip install -r requirements.txt)",
+      "Bash(.venv/Scripts/pip install -r requirements-dev.txt)",
+      "Bash(.venv/Scripts/pip list *)",
+      "Bash(python manage.py *)",
+      "Bash(python -m pytest *)",
+      "Bash(python -m pytest)",
+      "Bash(pytest *)",
+      "Bash(ruff *)",
+      "Bash(pip install -r requirements.txt)",
+      "Bash(pip install -r requirements-dev.txt)",
+      "Bash(pip list *)",
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git add *)",
+      "Bash(git commit *)"
+    ],
+    "ask": [
+      "Bash(pip install *)",
+      "Bash(.venv/Scripts/pip install *)",
+      "Bash(git push *)",
+      "Bash(vercel *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.local)",
+      "Edit(./.env)",
+      "Edit(./.env.local)",
+      "Bash(cat .env*)",
+      "Bash(rm -rf *)"
+    ],
+    "defaultMode": "acceptEdits"
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.venv/Scripts/python.exe\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/ruff_fix.py\"",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PROJECT_DIR}/.venv/Scripts/python.exe\" \"${CLAUDE_PROJECT_DIR}/.claude/hooks/django_check.py\"",
+            "timeout": 120
+          }
+        ]
+      }
+    ]
+  }
+}
