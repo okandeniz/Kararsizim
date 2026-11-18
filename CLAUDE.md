@@ -9,10 +9,10 @@ bir Django web uygulaması. PROTOTİP aşamasındayız: basit tut, gereksiz soyu
 
 Proje fazlara bölünmüş geliştiriliyor. Tek doğru kaynak: `docs/KARARSIZIM_PLAN.md` (veri modeli
 Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları Bölüm 8). Yalnızca
-ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–2 bitti (iskelet, `accounts.User`, tasarım token'ları,
-kayıt/giriş/çıkış). Sıradaki: Faz 3 (anket oluşturma). `polls` uygulaması şimdilik yalnızca geçici bir
-feed view'ı içeriyor; Poll/Option/Vote modelleri Faz 3'te eklenecek. Header'daki "Anket oluştur" butonu
-şimdilik `#`'e bağlı (Faz 3'te `polls:create`).
+ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–3 bitti (iskelet, `accounts.User`, tasarım token'ları,
+kayıt/giriş/çıkış, anket oluşturma). Sıradaki: Faz 4 (akış ve oylama). `polls:feed` hâlâ geçici bir
+sayfa; `polls:detail` seçenekleri yalnızca listeler. Poll/Option/Vote modelleri ve kısıtları hazır, `Vote`
+henüz hiçbir yerde kullanılmıyor.
 
 ## Ortam (Windows)
 - Sanal ortam `.venv` (Python 3.12). Komutları `.venv\Scripts\python` ile çalıştır
@@ -55,10 +55,24 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
 - `User.__str__` kullanıcı adını döndürür. `AbstractBaseUser.__str__` e-posta döndürdüğü için bu
   bilerek ezildi: `{{ user }}` ve `str(user)` e-postayı sızdırmamalı. Admin e-postayı gösterebilir (yalnızca süper kullanıcı).
 
-**Anket akışı (Faz 3–4'te yazılacak, tasarım kararları plan Bölüm 4–5'te)**
+**Anket oluşturma (`polls/forms.py`, `views.py`)**
+- `PollForm` normal bir `forms.Form`: soru + aynı adlı 5 `option` input'u (`request.POST.getlist`). Tüm kurallar
+  (boşları at, 2–5 adet, 80 karakter, büyük/küçük harf duyarsız tekrar, boşluk normalizasyonu) `clean()`'de;
+  `save(author)` Poll + Option'ları tek `transaction.atomic` içinde yazar (position 0..n-1). Seçenek hataları
+  non-field error olarak seçenek grubunun altında gösterilir; girilen değerler `option_slots` ile korunur.
+- `create` view'ı `login_required_with_message` ile korunur (misafiri `?next=` ile girişe atar ve giriş
+  sayfasında mesaj gösterir). Sınırlar `polls/models.py` sabitlerinde (`MAX_OPTIONS` vb.), form ve admin
+  aynı sabitleri kullanır.
+- `create.html`'de 5 kutu da HTML'de bulunur; "+ Seçenek ekle" ve × butonları `hidden` gelir, yalnızca JS
+  (`initPollForm`) açar. Seçenek rengi kutunun `data-position` (1–5) değerinden gelir (CSS'te `--opt`).
+  JS × ile silince alttaki değerleri yukarı kaydırır, böylece renk sırası bozulmaz.
+
+**Oy kuralları (Faz 4'te kullanılacak, tasarım kararları plan Bölüm 4–5'te)**
 - Tek oy kuralı veritabanı kısıtıyla korunur: `Vote` üzerinde `(poll, user)` ve `(poll, voter_token)` için
   koşullu `UniqueConstraint`, ayrıca "user veya voter_token dolu olmalı" `CheckConstraint`.
-  View `IntegrityError`'ı yakalar; doğrulama yalnızca view'da bırakılmaz.
+  View `IntegrityError`'ı yakalar; doğrulama yalnızca view'da bırakılmaz. `Option.position < 5` de DB
+  `CheckConstraint`'iyle korunur. `Vote.clean()` seçeneğin ankete ait olmasını kontrol eder (DB bunu
+  zorlamaz; view'da da doğrula).
 - Anonim oy için imzalı `voter_id` çerezi (UUID). Oy URL'si hem normal form (302) hem `fetch`
   (`X-Requested-With: fetch` → `_poll_results.html` parçası) isteğine cevap verir; kart ve sonuç parçaları
   akış ve detay sayfasında ortaktır.

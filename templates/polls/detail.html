@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load humanize %}
+
+{% block title %}{{ poll.question }} — kararsızım{% endblock %}
+{% block meta_description %}{{ poll.question }}{% endblock %}
+
+{% block content %}
+  <article class="card">
+    <p class="poll-meta small muted">@{{ poll.author.username }} · {{ poll.created_at|naturaltime }}</p>
+    <h1 class="poll-question">{{ poll.question }}</h1>
+
+    {# Oylama Faz 4'te gelecek; şimdilik seçenekler yalnızca listelenir. #}
+    <ol class="option-preview">
+      {% for option in poll.options.all %}
+        <li class="option-preview__item" data-position="{{ forloop.counter }}">{{ option.text }}</li>
+      {% endfor %}
+    </ol>
+  </article>
+{% endblock %}

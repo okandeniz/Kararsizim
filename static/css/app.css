@@ -76,6 +76,8 @@ img, svg { max-width: 100%; }
   border-radius: var(--radius-sm);
 }
 
+[hidden] { display: none !important; }
+
 .muted { color: var(--muted); }
 .small { font-size: 0.875rem; }
 
@@ -205,7 +207,7 @@ main.container { flex: 1; }
 }
 .btn--secondary:hover { background: var(--primary-tint); color: var(--primary-hover); }
 
-.btn--small { min-height: 40px; padding: 0 var(--s4); font-size: 0.9rem; }
+.btn--small { min-height: 44px; padding: 0 var(--s4); font-size: 0.9rem; }
 
 /* ---------- Kart ---------- */
 
@@ -265,6 +267,79 @@ main.container { flex: 1; }
 .auth-card__lead { margin-bottom: var(--s5); }
 .auth-card .btn--block { margin-top: var(--s2); }
 .auth-card__alt { margin-top: var(--s5); text-align: center; font-size: 0.95rem; }
+
+/* ---------- Seçenek renkleri: data-position (1–5) → --opt / --opt-tint ---------- */
+
+[data-position="1"] { --opt: var(--c1); --opt-tint: var(--c1-tint); }
+[data-position="2"] { --opt: var(--c2); --opt-tint: var(--c2-tint); }
+[data-position="3"] { --opt: var(--c3); --opt-tint: var(--c3-tint); }
+[data-position="4"] { --opt: var(--c4); --opt-tint: var(--c4-tint); }
+[data-position="5"] { --opt: var(--c5); --opt-tint: var(--c5-tint); }
+
+/* ---------- Anket oluşturma ---------- */
+
+.poll-form__lead { margin-bottom: var(--s5); }
+
+.options {
+  margin: 0 0 var(--s5);
+  padding: 0;
+  border: 0;
+  min-width: 0;
+}
+.options legend { padding: 0; margin-bottom: var(--s2); font-weight: 600; }
+
+.option-field {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+.option-field__body { flex: 1; min-width: 0; }
+
+.option-field__input {
+  border-left: 4px solid var(--opt);
+  background: var(--opt-tint);
+}
+
+.option-field__remove {
+  flex: none;
+  width: 44px;
+  height: 48px;
+  border: 0;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+}
+.option-field__remove:hover { background: var(--danger-tint); color: var(--danger); }
+
+.counter {
+  display: block;
+  margin-top: var(--s1);
+  text-align: right;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.counter--low { color: var(--danger); font-weight: 600; }
+
+.option-add { margin-top: var(--s1); }
+
+/* ---------- Anket detayı (oylama Faz 4'te) ---------- */
+
+.poll-meta { margin-bottom: var(--s2); }
+.poll-question { font-size: 1.25rem; font-weight: 800; line-height: 1.3; margin-bottom: var(--s4); }
+
+.option-preview { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--s2); }
+.option-preview__item {
+  padding: var(--s3) var(--s4);
+  border-left: 4px solid var(--opt);
+  border-radius: var(--radius);
+  background: var(--opt-tint);
+  font-weight: 600;
+}
 
 /* ---------- Mesajlar (toast) ---------- */
 

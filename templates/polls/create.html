@@ -1,0 +1,53 @@
+{% extends "base.html" %}
+
+{% block title %}Anket oluştur — kararsızım{% endblock %}
+{% block meta_description %}Kararsız kaldığın konuda anket aç, diğerlerine danış.{% endblock %}
+
+{% block content %}
+  <section class="card">
+    <h1 class="card__title">Neye karar veremiyorsun?</h1>
+    <p class="muted poll-form__lead">Bir soru yaz, 2 ile 5 arasında seçenek ekle. Herkes oy verebilir.</p>
+
+    <form method="post" action="{% url 'polls:create' %}" data-poll-form>
+      {% csrf_token %}
+
+      {% include "accounts/_field.html" with field=form.question %}
+
+      <fieldset class="options">
+        <legend>Seçenekler <span class="muted small">(en az 2, en fazla 5)</span></legend>
+
+        {% for slot in form.option_slots %}
+          <div class="option-field" data-option-row data-position="{{ slot.number }}">
+            <div class="option-field__body">
+              <label class="sr-only" for="id_option_{{ slot.number }}">Seçenek {{ slot.number }}</label>
+              <input
+                type="text"
+                class="input option-field__input"
+                id="id_option_{{ slot.number }}"
+                name="option"
+                value="{{ slot.value }}"
+                maxlength="80"
+                placeholder="Seçenek {{ slot.number }}"
+                autocomplete="off"
+                data-counted
+                {% if slot.required %}required{% endif %}>
+            </div>
+            {# Aşağıdaki butonlar yalnızca JS varken görünür (hidden kalkar). #}
+            <button type="button" class="option-field__remove" data-remove-option hidden
+                    aria-label="Seçenek {{ slot.number }} kaldır">×</button>
+          </div>
+        {% endfor %}
+
+        {% for error in form.non_field_errors %}
+          <div class="field__error" role="alert">{{ error }}</div>
+        {% endfor %}
+
+        <button type="button" class="btn btn--secondary btn--small option-add" data-add-option hidden>
+          + Seçenek ekle
+        </button>
+      </fieldset>
+
+      <button type="submit" class="btn btn--primary btn--block">Anketi yayınla</button>
+    </form>
+  </section>
+{% endblock %}

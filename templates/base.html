@@ -16,8 +16,7 @@
     <div class="site-header__inner">
       <a class="logo" href="{% url 'polls:feed' %}">kararsızım</a>
       <nav class="site-nav" aria-label="Ana menü">
-        {# "Anket oluştur" Faz 3'te polls:create adresine bağlanacak. #}
-        <a class="btn btn--primary btn--small" href="#">Anket oluştur</a>
+        <a class="btn btn--primary btn--small" href="{% url 'polls:create' %}">Anket oluştur</a>
         {% if user.is_authenticated %}
           <span class="site-nav__user">@{{ user.username }}</span>
           <form class="site-nav__form" method="post" action="{% url 'accounts:logout' %}">
