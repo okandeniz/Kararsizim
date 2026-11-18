@@ -24,9 +24,7 @@ if probe.returncode != 0:
 
 subprocess.run([*ruff, "format", path], check=False, capture_output=True)
 subprocess.run([*ruff, "check", "--fix", path], check=False, capture_output=True)
-result = subprocess.run(
-    [*ruff, "check", path], check=False, capture_output=True, text=True
-)
+result = subprocess.run([*ruff, "check", path], check=False, capture_output=True, text=True)
 
 if result.returncode != 0:
     print(f"ruff sorunları ({path}):\n{result.stdout}", file=sys.stderr)

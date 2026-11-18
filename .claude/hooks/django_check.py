@@ -23,8 +23,7 @@ result = subprocess.run(
 )
 if result.returncode != 0:
     print(
-        "`python manage.py check` başarısız. Bitirmeden önce düzelt:\n"
-        + result.stderr[-3000:],
+        "`python manage.py check` başarısız. Bitirmeden önce düzelt:\n" + result.stderr[-3000:],
         file=sys.stderr,
     )
     sys.exit(2)
