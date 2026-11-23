@@ -10,8 +10,10 @@ bir Django web uygulaması. PROTOTİP aşamasındayız: basit tut, gereksiz soyu
 Proje fazlara bölünmüş geliştiriliyor. Tek doğru kaynak: `docs/KARARSIZIM_PLAN.md` (veri modeli
 Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları Bölüm 8). Yalnızca
 ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts.User`, tasarım token'ları,
-kayıt/giriş/çıkış, anket oluşturma, akış ve oylama): yerelde çalışan prototip hazır. Sıradaki: Faz 5
-(Supabase + Vercel). Faz 2–4 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne
+kayıt/giriş/çıkış, anket oluşturma, akış ve oylama) ve Faz 5 ile uygulama **Vercel + Supabase'de canlı**
+(kayıt, giriş, anket oluşturma, üye ve misafir oyu canlıda doğrulandı). Faz 5'in kabul listesinden canlı
+görünüm (CSS) ve `/admin/` kullanıcı tarafından henüz onaylanmadı. Sıradaki: Faz 6 (arayüz cilası, 404/500 ve
+Türkçe CSRF hata sayfası). Faz 2–4 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne
 çekilip yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
 
 ## Ortam (Windows)
@@ -33,6 +35,29 @@ python manage.py check --deploy
 ```
 Testler `accounts/`, `polls/` ve `config/` içinde `test_*.py` olarak durur (uygulama içi, `tests/` klasörü yok);
 pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini atlar.
+
+## Canlı ortam (Vercel + Supabase): koddan çıkarılamayan notlar
+Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya e-posta yazma.
+- **Vercel build'i** bağımlılıkları `pyproject.toml`'dan kurar (yalnızca `requirements.txt` yetmez; ikisi
+  `config/test_dependencies.py` ile eşit tutulur) ve build sırasında `config/settings.py`'yi **içe aktarır**.
+  Ortam değişkenleri bu yüzden İLK deploy'dan önce girilmeli: `SECRET_KEY` eksikse ya da `DATABASE_URL`
+  geçersizse build `ImproperlyConfigured` ile düşer. Değişken değişince **Redeploy** gerekir. Değerler
+  Vercel'e tırnaksız girilir; liste README "Yayına alma" bölümünde.
+- **Supabase:** Data API KAPALI kalmalı. Django tabloları `public` şemasında RLS'siz oluşur; Data API açıksa
+  anon anahtarıyla herkes kullanıcıları (e-posta, parola özeti) okuyup yazabilir. Her migration'dan sonra
+  Supabase MCP `get_advisors` (security) temiz kalmalı. Migration üretime yerelden, **session pooler (5432)**
+  ile uygulanır: `DATABASE_URL`'i yalnızca o terminal oturumunda ver (`$env:DATABASE_URL = '...'`), `.env`'e
+  kalıcı yazma (aksi halde `runserver` üretim verisini değiştirir, `pytest` üretimde test veritabanı kurmaya
+  kalkar). Önce `migrate --plan` ile planın beklediğin tek migration olduğunu doğrula.
+- **Bu makinenin ağı `*.vercel.app` adreslerine TLS bağlantısını sıfırlıyor** (vercel.com ve GitHub açılıyor;
+  düz HTTP'de Vercel cevap veriyor). Canlı site buradan `curl` ya da yerleşik tarayıcıyla açılmaz; kullanıcı
+  mobil veri/hotspot/VPN ile dener. Vercel MCP bağlantısı projeyi görmüyor (yetkisiz, 404): build/runtime
+  loglarını kullanıcıdan iste. Deploy durumu herkese açık GitHub API'den okunur:
+  `https://api.github.com/repos/okandeniz/Kararsizim/commits/main/status` (bağlam "Vercel").
+- **Canlı veriyi doğrulamak için** Supabase MCP `execute_sql` ile yalnızca sayım/yapı sorgula (kişisel içerik
+  okuma). Üretimdeki test kayıtlarını silmek için kullanıcıdan açık izin al; süper kullanıcıya dokunma.
+- **CSRF:** Canlıda eski bir sekme ya da çerez yüzünden `Forbidden (CSRF token from POST incorrect.)` (403)
+  görülebilir; yeni gizli sekmede giriş çalışır. Origin/çerez ayarları doğru (kayıt ve giriş canlıda çalıştı).
 
 ## Mimari (birden fazla dosyayı okumadan görünmeyenler)
 
