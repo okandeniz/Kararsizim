@@ -17,6 +17,7 @@
 
   <p class="poll-card__footer small muted">
     <span data-vote-total>{{ poll.total_votes }} oy</span>
-    {% if not is_detail %}· <a href="{% url 'polls:detail' poll.pk %}">Paylaş</a>{% endif %}
+    {% if not is_detail %}<span aria-hidden="true">·</span>
+    <a class="poll-card__share" href="{% url 'polls:detail' poll.pk %}">Paylaş<span class="sr-only">: {{ poll.question }}</span></a>{% endif %}
   </p>
 </article>

@@ -3,8 +3,21 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="theme-color" content="#7C3AED">
   <title>{% block title %}kararsızım — kararsız kaldığın şeyi sor{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Kararsız kaldığın konuda anket aç, diğerlerine danış.{% endblock %}">
+  <link rel="icon" href="{% static 'img/favicon.svg' %}" type="image/svg+xml">
+
+  {# Paylaşım önizlemesi (Open Graph). 500 ve CSRF hata sayfaları request olmadan çizilir; og:url o zaman atlanır. #}
+  <meta property="og:site_name" content="kararsızım">
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="tr_TR">
+  <meta property="og:title" content="{% block og_title %}kararsızım — kararsız kaldığın şeyi sor{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Kararsız kaldığın konuda anket aç, diğerlerine danış.{% endblock %}">
+  {% if request %}<meta property="og:url" content="{{ request.scheme }}://{{ request.get_host }}{{ request.path }}">{% endif %}
+  <meta name="twitter:card" content="summary">
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
@@ -12,11 +25,16 @@
   {% block extra_head %}{% endblock %}
 </head>
 <body>
+  <a class="skip-link" href="#main">Ana içeriğe geç</a>
+
   <header class="site-header">
     <div class="site-header__inner">
       <a class="logo" href="{% url 'polls:feed' %}">kararsızım</a>
       <nav class="site-nav" aria-label="Ana menü">
-        <a class="btn btn--primary btn--small" href="{% url 'polls:create' %}">Anket oluştur</a>
+        <a class="btn btn--primary btn--small btn--create" href="{% url 'polls:create' %}" aria-label="Anket oluştur">
+          <span class="btn--create__icon" aria-hidden="true">+</span>
+          <span class="btn--create__text">Anket oluştur</span>
+        </a>
         {% if user.is_authenticated %}
           <span class="site-nav__user">@{{ user.username }}</span>
           <form class="site-nav__form" method="post" action="{% url 'accounts:logout' %}">
@@ -31,7 +49,7 @@
     </div>
   </header>
 
-  <main class="container">
+  <main class="container" id="main" tabindex="-1">
     {% if messages %}
       <ul class="messages" aria-live="polite">
         {% for message in messages %}

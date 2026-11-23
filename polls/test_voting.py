@@ -1,13 +1,21 @@
+import time
 import uuid
 
 import pytest
 from django.db import IntegrityError
+from django.http import HttpResponse
 from django.test import Client
 from django.urls import reverse
 
 from .conftest import PASSWORD
 from .models import Vote
-from .voting import VOTER_COOKIE, attach_results, round_percent
+from .voting import (
+    VOTER_COOKIE,
+    VOTER_COOKIE_MAX_AGE,
+    attach_results,
+    round_percent,
+    set_voter_cookie,
+)
 
 pytestmark = pytest.mark.django_db
 
@@ -357,3 +365,34 @@ def test_non_unique_integrity_error_is_not_reported_as_already_voted(client, pol
 def test_results_fragment_is_focusable_for_screen_readers(client, poll):
     body = client.post(vote_url(poll), {"option": option_id(poll)}, **FETCH).content.decode()
     assert 'tabindex="-1"' in body
+
+
+# ---------- Süresi dolmuş çerez (incelemeden) ----------
+
+
+def test_expired_voter_cookie_is_ignored_and_replaced(client, poll, monkeypatch):
+    old_token = uuid.uuid4()
+    real_now = time.time()
+    with monkeypatch.context() as past:
+        # Çerezi, geçerlilik süresinden (1 yıl) bir saat önce imzalanmış gibi üret.
+        past.setattr(time, "time", lambda: real_now - VOTER_COOKIE_MAX_AGE - 3600)
+        response = HttpResponse()
+        set_voter_cookie(response, old_token)
+    client.cookies[VOTER_COOKIE] = response.cookies[VOTER_COOKIE].value
+
+    result = client.post(vote_url(poll), {"option": option_id(poll)})
+
+    assert result.status_code == 302
+    assert Vote.objects.get().voter_token != old_token  # süresi dolan kimlik kullanılmadı
+    assert VOTER_COOKIE in result.cookies  # yenisi verildi
+
+
+def test_fresh_voter_cookie_is_still_honoured(client, poll):
+    old_token = uuid.uuid4()
+    response = HttpResponse()
+    set_voter_cookie(response, old_token)
+    client.cookies[VOTER_COOKIE] = response.cookies[VOTER_COOKIE].value
+
+    client.post(vote_url(poll), {"option": option_id(poll)})
+
+    assert Vote.objects.get().voter_token == old_token

@@ -2,6 +2,7 @@
 
 {% block content %}
   {% if polls %}
+    <h1 class="sr-only">Anketler</h1>
     <div class="poll-list">
       {% for poll in polls %}
         {% include "polls/_poll_card.html" %}

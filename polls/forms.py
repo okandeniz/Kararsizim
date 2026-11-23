@@ -70,6 +70,10 @@ class PollForm(forms.Form):
         if not question:
             # Yalnızca görünmez karakterlerden oluşan soru, görünürde boştur.
             raise forms.ValidationError(self.fields["question"].error_messages["required"])
+        if len(question) > QUESTION_MAX_LENGTH:
+            # CharField sınırı ham metne uygulanır; NFC bazı karakterleri uzatır (1 → 2). Postgres
+            # "value too long" ile reddeder (SQLite etmez): normalize sonrası da denetlenir.
+            raise forms.ValidationError(self.fields["question"].error_messages["max_length"])
         return question
 
     def clean(self):

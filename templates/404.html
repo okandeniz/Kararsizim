@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Sayfa bulunamadı — kararsızım{% endblock %}
+{% block meta_description %}Aradığın sayfa bulunamadı.{% endblock %}
+
+{% block content %}
+  <section class="card card--soft error-page">
+    <p class="error-page__code" aria-hidden="true">404</p>
+    <h1 class="card__title">Bu sayfa kararsız kalıp kaybolmuş 🤔</h1>
+    <p class="muted">Aradığın sayfa yok ya da taşınmış olabilir. Bağlantıyı kontrol et ya da ana sayfadan devam et.</p>
+    <div class="error-page__actions">
+      <a class="btn btn--primary" href="{% url 'polls:feed' %}">Ana sayfaya dön</a>
+    </div>
+  </section>
+{% endblock %}

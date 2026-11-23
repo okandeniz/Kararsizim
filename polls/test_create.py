@@ -336,3 +336,18 @@ def test_zwj_emoji_sequences_are_preserved(member_client):
     family = "\U0001f468\u200d\U0001f469\u200d\U0001f467"
     post_poll(member_client, options=[family, "Tek başıma"])
     assert option_texts(Poll.objects.get())[0] == family
+
+
+# ---------- Normalizasyon sonrası uzunluk (incelemeden) ----------
+
+
+def test_question_that_grows_after_nfc_is_rejected(member_client):
+    # U+0344 tek karakterdir ama NFC'de iki karaktere açılır: 200 ham karakter → 400 karakter.
+    # SQLite bunu sessizce kabul eder, Postgres "value too long" ile 500 verirdi.
+    response = post_poll(member_client, question="\u0344" * 200)
+    assert_rejected(member_client, response, "Soru en fazla 200 karakter olabilir.")
+
+
+def test_question_at_the_limit_is_still_accepted_after_normalization(member_client):
+    post_poll(member_client, question="é" * 200)  # NFC'de uzamayan, tam sınırda soru
+    assert len(Poll.objects.get().question) == 200

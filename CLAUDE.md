@@ -12,9 +12,10 @@ Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları
 ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts.User`, tasarım token'ları,
 kayıt/giriş/çıkış, anket oluşturma, akış ve oylama) ve Faz 5 ile uygulama **Vercel + Supabase'de canlı**
 (kayıt, giriş, anket oluşturma, üye ve misafir oyu canlıda doğrulandı). Faz 5'in kabul listesinden canlı
-görünüm (CSS) ve `/admin/` kullanıcı tarafından henüz onaylanmadı. Sıradaki: Faz 6 (arayüz cilası, 404/500 ve
-Türkçe CSRF hata sayfası). Faz 2–4 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne
-çekilip yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
+görünüm (CSS) ve `/admin/` kullanıcı tarafından henüz onaylanmadı. Faz 6 (arayüz cilası, hata sayfaları,
+erişilebilirlik) kodlandı ve yerelde doğrulandı; canlıda henüz görülmedi. Sıradaki: Faz 7 (oran sınırı, bot
+koruması). Faz 2–4 ve Faz 6 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne çekilip
+yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
 
 ## Ortam (Windows)
 - Sanal ortam `.venv` (Python 3.12). Komutları `.venv\Scripts\python` ile çalıştır
@@ -45,7 +46,10 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
   Vercel'e tırnaksız girilir; liste README "Yayına alma" bölümünde.
 - **Supabase:** Data API KAPALI kalmalı. Django tabloları `public` şemasında RLS'siz oluşur; Data API açıksa
   anon anahtarıyla herkes kullanıcıları (e-posta, parola özeti) okuyup yazabilir. Her migration'dan sonra
-  Supabase MCP `get_advisors` (security) temiz kalmalı. Migration üretime yerelden, **session pooler (5432)**
+  Supabase MCP `get_advisors` (security) temiz kalmalı. Tabloların
+  RLS'i bilerek AÇILMADI (kullanıcı kararı: Data API kapalıyken tablolar API'den erişilemez); `list_tables`
+  aracının "RLS disabled" kritik uyarısı bu yüzden beklenen bir durumdur, kendiliğinden RLS açma. Data API'yi
+  yeniden açmadan önce RLS'i açmayı öner. Migration üretime yerelden, **session pooler (5432)**
   ile uygulanır: `DATABASE_URL`'i yalnızca o terminal oturumunda ver (`$env:DATABASE_URL = '...'`), `.env`'e
   kalıcı yazma (aksi halde `runserver` üretim verisini değiştirir, `pytest` üretimde test veritabanı kurmaya
   kalkar). Önce `migrate --plan` ile planın beklediğin tek migration olduğunu doğrula.
@@ -137,6 +141,25 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
 
 **Ön yüz** — tek `static/css/app.css` (tüm renk/ölçü `:root` token'larından; seçenek renkleri `--c1…--c5`
 `Option.position`'a göre) ve tek `static/js/app.js`. Build adımı yok.
+- **Renk kuralları** (`config/test_design_tokens.py` denetler): renkler yalnızca `:root` token'larında; başka yerde
+  `#hex`/`rgb()`/`white` yasak. Üzerinde beyaz metin olan yüzeylerde (butonlar) koyulaştırılmış `--gradient-strong`
+  (açık `--gradient` beyaz metinde AA'yı geçmez, yalnızca logo ve dekoratif metin dolgusu). Seçenek rengi üstündeki
+  simge `--opt-on` (`--cN-on`). Kontrast oranları token değerlerinden hesaplanır: bir renk değişince AA bozulursa
+  test düşer. Dokunma hedefleri en az 44px (logo, nav, "Paylaş", atla bağlantısı dahil).
+- **Hata sayfaları:** `templates/404.html`, `500.html`, `403_csrf.html` (Django CSRF görünümü bu adı kendiliğinden
+  kullanır, özel view gerekmez; nedeni göstermez). **500 ve CSRF sayfaları request/context OLMADAN çizilir:**
+  `base.html`'de `request`, `user`, `messages` tanımsızdır (`og:url` bu yüzden `{% if request %}` ile korunur,
+  `{% csrf_token %}` bu sayfalarda kullanılamaz). Yeni bir `base.html` değişikliği bu üç sayfayı kırmamalı
+  (`config/test_error_pages.py`).
+- **JS ↔ CSS:** `app.js`'in eklediği her sınıfın CSS'te tanımı olmalı (test denetler). Yalnızca başarı mesajları
+  otomatik kaybolur; hata/bilgi mesajları kalır. Oy sonrası lider vurgusu `results--fresh`, düğme geri bildirimi
+  `vote-option--pop` ile gelir; ikisi de `prefers-reduced-motion` altında kapanır.
+- **Paylaşım önizlemesi:** `og:url` sorgusuz; detay açıklaması her seçeneği 40 karaktere kısaltır (`og:description`
+  kısa kalsın). Paylaşım görseli (PNG) yok: üretmek için araç gerekir.
+- **Yerel tarayıcı önbelleği:** CSS/JS değişince panelde eski dosya görünebilir. Yenilemek için
+  `await fetch('/static/css/app.css', {cache: 'reload'}); location.reload()` çalıştır, sonra ölç.
+- **Bilinen küçük kusur:** oy yüzdeleri yarım-yukarı yuvarlandığı için toplam %100'ü 1–2 aşabilabilir
+  (`round_percent`); en büyük kalan yöntemi gerekirse ayrıca ele alınır (testlerin beklediği değerler değişir).
 
 ## Değişmez kurallar
 - E-posta HİÇBİR şablonda, JSON yanıtında veya hata mesajında gösterilmez; kullanıcı her yerde `@kullaniciadi`.

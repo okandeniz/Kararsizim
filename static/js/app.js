@@ -17,9 +17,12 @@ function getCookie(name) {
   return null;
 }
 
-/** Django mesajlarını birkaç saniye sonra yumuşakça kaldırır. */
+/**
+ * Başarı mesajlarını birkaç saniye sonra yumuşakça kaldırır. Hata ve bilgi mesajları ("Bu ankete
+ * zaten oy verdin" gibi) okunana kadar kalır: süreli kaybolan önemli mesaj erişilebilirlik sorunudur.
+ */
 function autoHideMessages() {
-  document.querySelectorAll(".message").forEach((el) => {
+  document.querySelectorAll(".message--success").forEach((el) => {
     setTimeout(() => {
       el.classList.add("message--hide");
       setTimeout(() => el.remove(), 400);
@@ -158,6 +161,15 @@ function initVoting() {
     const data = new FormData(form);
     const submitter = event.submitter;
     if (submitter && submitter.name) data.set(submitter.name, submitter.value);
+    if (submitter) {
+      submitter.classList.add("vote-option--pop"); // kısa "pop" geri bildirimi
+      // Hata olursa buton yeniden açılır; sınıf kalmasın ki ikinci tıklamada animasyon tekrar etsin.
+      submitter.addEventListener(
+        "animationend",
+        () => submitter.classList.remove("vote-option--pop"),
+        { once: true },
+      );
+    }
 
     body.querySelector(".vote-error")?.remove();
     buttons.forEach((button) => {
@@ -190,6 +202,7 @@ function initVoting() {
 
       body.innerHTML = text;
       const results = body.querySelector("[data-results]");
+      if (results) results.classList.add("results--fresh"); // lider kısa süre vurgulanır
       const totalEl = card.querySelector("[data-vote-total]");
       if (results && totalEl) totalEl.textContent = results.dataset.total + " oy";
       animateBars(body);

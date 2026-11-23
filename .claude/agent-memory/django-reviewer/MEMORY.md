@@ -1,2 +1,3 @@
 - [Auth inceleme kalıpları](project_auth_review_patterns.md) — Faz 2'de bulunan tekrar eden sorunlar ve bilinçli ürün kararları
 - [Anket/oy inceleme kalıpları](project_poll_vote_review_patterns.md) — Faz 3-4: NUL karakter, admin inline, 409 UX, doğrulanan iyi uygulamalar
+- [Faz 6 inceleme kalıpları](project_phase6_review_patterns.md) — OG/hata sayfaları/a11y: kalan düşük bulgular, NFC uzunluk, HSTS

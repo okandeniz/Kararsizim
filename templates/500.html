@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{# Django 500 sayfasını request ve context olmadan çizer: burada user, messages ve csrf_token yoktur. #}
+
+{% block title %}Bir şeyler ters gitti — kararsızım{% endblock %}
+{% block meta_description %}Bir şeyler ters gitti.{% endblock %}
+
+{% block content %}
+  <section class="card card--soft error-page">
+    <p class="error-page__code" aria-hidden="true">500</p>
+    <h1 class="card__title">Bu sefer biz karar veremedik 😅</h1>
+    <p class="muted">Sunucuda beklenmedik bir sorun çıktı. Birkaç dakika sonra tekrar dene.</p>
+    <div class="error-page__actions">
+      <a class="btn btn--primary" href="{% url 'polls:feed' %}">Ana sayfaya dön</a>
+    </div>
+  </section>
+{% endblock %}

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{# Django'nun CSRF hata görünümünü bu şablonla değiştiririz (403_csrf.html adı Django'nun varsayılanıdır). #}
+{# Nedeni (reason) bilerek göstermeyiz; Django bunu zaten günlüğe yazar. Şablon request olmadan çizilir. #}
+
+{% block title %}Sayfanın süresi dolmuş — kararsızım{% endblock %}
+{% block meta_description %}Sayfanın süresi dolmuş, yenileyip tekrar dene.{% endblock %}
+
+{% block content %}
+  <section class="card card--soft error-page">
+    <p class="error-page__code" aria-hidden="true">403</p>
+    <h1 class="card__title">Bu sayfanın süresi dolmuş</h1>
+    <p class="muted">Sayfa uzun süre açık kalmış ya da başka bir sekmede giriş veya çıkış yapmış olabilirsin. Sayfayı yeniden açıp işlemi tekrar dene.</p>
+    <div class="error-page__actions">
+      <a class="btn btn--primary" href="{% url 'polls:feed' %}">Ana sayfaya dön</a>
+      <a class="btn btn--secondary" href="{% url 'accounts:login' %}">Giriş yap</a>
+    </div>
+  </section>
+{% endblock %}

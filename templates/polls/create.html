@@ -13,7 +13,7 @@
 
       {% include "accounts/_field.html" with field=form.question %}
 
-      <fieldset class="options">
+      <fieldset class="options"{% if form.non_field_errors %} aria-describedby="options-errors"{% endif %}>
         <legend>Seçenekler <span class="muted small">(en az 2, en fazla 5)</span></legend>
 
         {% for slot in form.option_slots %}
@@ -38,9 +38,13 @@
           </div>
         {% endfor %}
 
-        {% for error in form.non_field_errors %}
-          <div class="field__error" role="alert">{{ error }}</div>
-        {% endfor %}
+        {% if form.non_field_errors %}
+          <div id="options-errors">
+            {% for error in form.non_field_errors %}
+              <div class="field__error" role="alert">{{ error }}</div>
+            {% endfor %}
+          </div>
+        {% endif %}
 
         <button type="button" class="btn btn--secondary btn--small option-add" data-add-option hidden>
           + Seçenek ekle
