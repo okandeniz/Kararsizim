@@ -10,6 +10,10 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.views.decorators.http import require_POST
 
+from abuse.identity import ip_subject, user_subject
+from abuse.limits import attempt, check, record
+from abuse.responses import rate_limited_page, rate_limited_text
+from abuse.rules import GUEST_VOTE_PER_POLL, POLL_CREATE, VOTE
 from accounts.views import safe_next_url
 
 from .forms import PollForm
@@ -27,6 +31,9 @@ POLLS_PER_PAGE = 20
 MSG_ALREADY_VOTED = "Bu ankete zaten oy verdin."
 MSG_INVALID_OPTION = "Geçersiz seçenek."
 MSG_VOTE_SAVED = "Oyun kaydedildi, teşekkürler!"
+MSG_TOO_FAST = "Çok hızlı gidiyorsun, biraz bekleyip tekrar dene."
+MSG_GUEST_LIMIT = "Bu ağdan bu ankete çok fazla oy verildi. Giriş yaparak oy verebilirsin."
+MSG_TOO_MANY_POLLS = "Kısa sürede çok fazla anket oluşturdun."
 
 
 def feed(request):
@@ -56,9 +63,14 @@ def login_required_with_message(message):
 @login_required_with_message("Anket oluşturmak için giriş yapmalısın.")
 def create(request):
     if request.method == "POST":
+        subject = user_subject(request.user)
+        decision = check(POLL_CREATE, subject)
+        if not decision.allowed:
+            return rate_limited_page(request, decision, MSG_TOO_MANY_POLLS)
         form = PollForm(request.POST)
         if form.is_valid():
             poll = form.save(author=request.user)
+            record(POLL_CREATE, subject)  # yalnızca başarılı anketler sayılır
             messages.success(request, "Anketin yayında! 🎉")
             return redirect("polls:detail", pk=poll.pk)
     else:
@@ -86,8 +98,22 @@ def vote_error(request, poll, message, status):
     return redirect(safe_next_url(request) or reverse("polls:detail", kwargs={"pk": poll.pk}))
 
 
+def vote_throttled(request, pk, decision, message):
+    """Hız sınırı: fetch'e 429 düz metin, normal forma mesaj + yönlendirme (409 ile aynı akış)."""
+    if is_fetch_request(request):
+        return rate_limited_text(decision, message)
+    messages.info(request, message)
+    return redirect(safe_next_url(request) or reverse("polls:detail", kwargs={"pk": pk}))
+
+
 @require_POST
 def vote(request, pk):
+    # Önce hız sınırı: sel gibi gelen istekler veritabanını yormadan geri çevrilir.
+    agent_subject = ip_subject(request, with_agent=True)
+    decision = attempt(VOTE, agent_subject)
+    if not decision.allowed:
+        return vote_throttled(request, pk, decision, MSG_TOO_FAST)
+
     poll = get_object_or_404(Poll, pk=pk)
 
     # Seçenek gerçekten bu ankete ait mi? (Başka anketin seçeneği veya uydurma id → 400.)
@@ -106,6 +132,10 @@ def vote(request, pk):
         claim_anonymous_votes(request.user, read_voter_token(request))
         voter = {"user": request.user}
     else:
+        # Çerezi silip aynı ankete tekrar oy vermeyi zorlaştırır (yalnızca başarılı oylar sayılır).
+        decision = check(GUEST_VOTE_PER_POLL, agent_subject, suffix=str(poll.pk))
+        if not decision.allowed:
+            return vote_throttled(request, pk, decision, MSG_GUEST_LIMIT)
         token = read_voter_token(request)
         if token is None:
             token = new_token = uuid.uuid4()
@@ -120,6 +150,9 @@ def vote(request, pk):
         if Vote.objects.filter(poll=poll, **voter).exists():
             return vote_error(request, poll, MSG_ALREADY_VOTED, status=409)
         return vote_error(request, poll, MSG_INVALID_OPTION, status=400)
+
+    if "voter_token" in voter:
+        record(GUEST_VOTE_PER_POLL, agent_subject, suffix=str(poll.pk))
 
     if is_fetch_request(request):
         (poll,) = attach_results([poll], voter)

@@ -1,9 +1,11 @@
+import time
+
 import pytest
 from django.db import IntegrityError
 from django.test import Client
 from django.urls import reverse
 
-from .forms import RegisterForm
+from .forms import RegisterForm, make_form_token
 
 pytestmark = pytest.mark.django_db
 
@@ -20,6 +22,8 @@ def register_data(**overrides):
         "email": "ali@example.com",
         "password1": PASSWORD,
         "password2": PASSWORD,
+        "hp_alan": "",  # bot tuzağı boş
+        "form_ts": make_form_token(time.time() - 10),  # form insan hızında açılmış gibi
     }
     data.update(overrides)
     return data

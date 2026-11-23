@@ -1,10 +1,14 @@
 """Oy birleştirme: giriş/kayıt sırasında tarayıcının anonim oyları hesaba bağlanır."""
 
+import time
+
 import pytest
 from django.db import IntegrityError
 from django.db.models.query import QuerySet
 from django.test import Client
 from django.urls import reverse
+
+from accounts.forms import make_form_token
 
 from .conftest import PASSWORD
 from .models import Vote
@@ -105,6 +109,8 @@ def test_register_claims_anonymous_votes(client, poll, django_user_model):
             "email": "yeni@example.com",
             "password1": PASSWORD,
             "password2": PASSWORD,
+            "hp_alan": "",
+            "form_ts": make_form_token(time.time() - 10),
         },
     )
 

@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "django.contrib.humanize",
     "accounts",
     "polls",
+    "abuse",
 ]
 
 MIDDLEWARE = [
@@ -150,6 +151,18 @@ if not DEBUG:
     # Vercel HTTPS'i zaten zorunlu tutuyor; yönlendirme döngüsü olmasın.
     SECURE_SSL_REDIRECT = False
 
+
+# Kötüye kullanım koruması (abuse uygulaması).
+# Vercel'de istemci IP'si x-vercel-forwarded-for / x-forwarded-for başlığından okunur. Başka
+# ortamlarda bu başlıklar istemci tarafından sahtelenebilir, bu yüzden yalnızca Vercel'de güvenilir.
+TRUST_PROXY_IP_HEADERS = bool(os.environ.get("VERCEL"))
+# Acil durum anahtarı: sınırlar gerçek kullanıcıları engelliyorsa False yapıp yeniden deploy et.
+RATE_LIMITS_ENABLED = env_bool("RATE_LIMITS_ENABLED", default=True)
+# Kayıt formundaki bot tuzağı: çok hızlı (< 2 sn) ya da çok eski (> 2 sa) gönderim reddedilir.
+# 2 sn: parola yöneticisiyle otomatik dolduran gerçek kullanıcıyı engellemeyecek kadar kısa,
+# çoğu botun gönderim süresinin (< 1 sn) üzerinde.
+REGISTER_MIN_FILL_SECONDS = 2
+REGISTER_MAX_AGE_SECONDS = 2 * 60 * 60
 
 # Yerelde e-postalar konsola yazılır. Production'da bilerek tanımlı değil: Django 6.1'in
 # `check --deploy` kontrolü DEBUG=False iken konsol backend'ini hata sayar (mail.E001).

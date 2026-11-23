@@ -104,3 +104,31 @@ python manage.py makemigrations --check --dry-run
 zorunlu tutar, yönlendirme bilerek kapalıdır.
 
 Sorun giderme tablosu için [docs/KARARSIZIM_PLAN.md](docs/KARARSIZIM_PLAN.md) Bölüm 9'a bak.
+
+## Kötüye kullanım koruması (hız sınırları)
+
+Oy, kayıt, giriş ve anket oluşturma sınırlıdır. Sayaçlar bellekte değil `abuse_hit` tablosunda tutulur
+(Vercel serverless olduğu için bellek istekler arasında paylaşılmaz). Sınırlar tek yerde:
+[abuse/rules.py](abuse/rules.py).
+
+| Ne | Sınır (ilk değerler) |
+|---|---|
+| Oy (üye veya misafir) | IP + tarayıcı başına dakikada 40, saatte 400 |
+| Misafir oyu | Anket başına IP + tarayıcı başına 24 saatte 10 (yalnızca başarılı oylar) |
+| Kayıt | IP başına saatte 10 deneme |
+| Giriş (site ve `/admin/`) | IP başına dakikada 20 ve saatte 200; e-posta başına 15 dakikada 10 **başarısız** deneme (dolunca doğru parola bile denenmez; e-posta Django'nun kimlik doğrulamasıyla aynı biçimde normalize edilir, Unicode varyantlarıyla atlatılamaz) |
+| Anket oluşturma | Kullanıcı başına saatte 10 |
+
+- **Kayıt formu** ayrıca gizli bir tuzak alanı (`hp_alan`) ve imzalı zaman damgası içerir: tuzak doluysa, form 2 saniyeden
+  hızlı ya da 2 saatten eski gönderilirse kayıt reddedilir. Harici servis (CAPTCHA) yoktur.
+- **Gizlilik:** ham IP, e-posta ya da kullanıcı kimliği saklanmaz; yalnızca `SECRET_KEY`'den türetilmiş anahtarla HMAC-SHA256
+  özeti tutulur (IPv6 için /64 öneki). Kayıtlar en geç 25 saat sonra silinir.
+- **IP kaynağı:** Vercel'de `x-vercel-forwarded-for` / `x-forwarded-for` başlığı (Vercel dış IP'leri iletmez, sahteciliğe kapalı).
+  Başka ortamlarda bu başlıklar yok sayılır, `REMOTE_ADDR` kullanılır. Vercel'de başlık okunamazsa IP'ye bağlı sınırlar atlanır
+  (herkes tek kovaya düşmesin diye).
+- **Acil durum anahtarı:** sınırlar gerçek kullanıcıları engelliyorsa Vercel'de `RATE_LIMITS_ENABLED=False` yapıp yeniden deploy et.
+- **Koruma siteyi çökertmez:** veritabanı hatasında sınırlayıcı loglar ve isteğe izin verir.
+- **Üretime alma sırası:** yeni tablo gerektirir. `abuse` migration'ını üretime (session pooler ile, yukarıdaki "Migration"
+  bölümü) **deploy'dan ÖNCE** uygula; tablo yokken koruma sessizce devre dışı kalır (site çalışır, sınır uygulanmaz).
+- Reddedilen isteklere HTTP 429 ve `Retry-After` başlığı döner. Engelleme olayları (`kapsam`, bekleme süresi; IP yok)
+  uygulama günlüğüne yazılır.

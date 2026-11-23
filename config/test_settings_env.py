@@ -21,6 +21,7 @@ ENV_NAMES = (
     "DEBUG",
     "ALLOWED_HOSTS",
     "CSRF_TRUSTED_ORIGINS",
+    "RATE_LIMITS_ENABLED",
 )
 
 
@@ -197,3 +198,34 @@ def test_invalid_database_url_gives_actionable_error_without_leaking_it(load_set
     assert SECRET not in message  # parola hata metnine sızmaz
     assert HOST not in message
     assert exc_info.value.__cause__ is None  # özgün hata (URL içerebilir) zincire eklenmez
+
+
+# ---------- Kötüye kullanım koruması ayarları ----------
+
+
+def test_proxy_ip_headers_are_trusted_only_on_vercel(load_settings):
+    # Başka ortamlarda x-forwarded-for istemci tarafından sahtelenebilir.
+    assert load_settings().TRUST_PROXY_IP_HEADERS is False
+    assert load_settings(VERCEL="1", SECRET_KEY="x").TRUST_PROXY_IP_HEADERS is True
+
+
+def test_rate_limits_are_on_by_default(load_settings):
+    assert load_settings().RATE_LIMITS_ENABLED is True
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"), [("False", False), ("0", False), ("true", True), ("1", True)]
+)
+def test_rate_limits_emergency_switch(load_settings, value, expected):
+    assert load_settings(RATE_LIMITS_ENABLED=value).RATE_LIMITS_ENABLED is expected
+
+
+def test_register_form_age_limits_are_sane(load_settings):
+    module = load_settings()
+
+    assert 0 < module.REGISTER_MIN_FILL_SECONDS < 60
+    assert module.REGISTER_MAX_AGE_SECONDS > 600  # insan uzun parola seçerken yarıda kalabilir
+
+
+def test_abuse_app_is_installed(load_settings):
+    assert "abuse" in load_settings().INSTALLED_APPS

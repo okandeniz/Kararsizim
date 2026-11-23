@@ -284,6 +284,15 @@ main.container { flex: 1; }
 
 .btn--block { width: 100%; }
 
+/* Kayıt formundaki bot tuzağı: ekran dışında (display:none botlar tarafından atlanabilir) */
+.hp-field {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
 /* ---------- Üyelik sayfaları ---------- */
 
 .auth-card { max-width: 480px; margin: var(--s5) auto 0; }

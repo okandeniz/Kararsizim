@@ -13,8 +13,10 @@ ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts
 kayıt/giriş/çıkış, anket oluşturma, akış ve oylama) ve Faz 5 ile uygulama **Vercel + Supabase'de canlı**
 (kayıt, giriş, anket oluşturma, üye ve misafir oyu canlıda doğrulandı). Faz 5'in kabul listesinden canlı
 görünüm (CSS) ve `/admin/` kullanıcı tarafından henüz onaylanmadı. Faz 6 (arayüz cilası, hata sayfaları,
-erişilebilirlik) kodlandı ve yerelde doğrulandı; canlıda henüz görülmedi. Sıradaki: Faz 7 (oran sınırı, bot
-koruması). Faz 2–4 ve Faz 6 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne çekilip
+erişilebilirlik) canlıya alındı (deploy başarılı, görünümü kullanıcı henüz onaylamadı). Faz 7 (hız sınırları,
+giriş kilidi, kayıtta bot tuzağı: `abuse/`) kodlandı ve yerelde doğrulandı; üretime alma sırası aşağıda (migration
+ÖNCE). Sıradaki: Faz 7'nin canlıda doğrulanması, sonra plan Bölüm 8 tablosundaki Faz 9+. Faz 2–4, 6 ve 7
+`django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne çekilip
 yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
 
 ## Ortam (Windows)
@@ -129,6 +131,34 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
   (`initVoting`) parçayı kartın içine koyar ve çubukları 0'dan doldurur. Form `next` alanı sayfa +
   `#poll-<id>` taşır.
 - URL isimleri `polls:feed|detail|vote|create`, `accounts:register|login|logout`.
+
+**Kötüye kullanım koruması (`abuse/`, Faz 7)**
+- Sayaçlar bellekte değil `abuse_hit` tablosunda (Vercel serverless: bellek paylaşılmaz). `limits.py`: `Limit(kapsam,
+  pencereler)`, `check` (kaydetmez), `record`, `attempt` (= check + record; reddedileni saymaz). Tek toplama sorgusu.
+  **Fail-open:** `django.db.Error` (kopan pooler'daki `InterfaceError` dahil, `DatabaseError` yetmez) yakalanır,
+  loglanır, istek geçer. Sayılar `rules.py`'de; view'lar sabiti kendi modülüne bağlar (`polls.views.VOTE`,
+  `accounts.views.REGISTER`, `abuse.decorators.LOGIN_IP`...): testler **kullanıldığı modüldeki adı** monkeypatch'ler.
+- Kimlik (`identity.py`): ham IP/e-posta/kullanıcı kimliği ASLA saklanmaz; `subject_hash` = `salted_hmac(...,
+  algorithm="sha256")` (Django 6.1'in varsayılanı hâlâ sha1: açıkça ver). IPv6 → /64, IPv4-eşlemeli → IPv4. IP kaynağı:
+  `TRUST_PROXY_IP_HEADERS` (yalnızca `VERCEL` varken) → `x-vercel-forwarded-for`, `x-forwarded-for`, `x-real-ip`; hiçbiri
+  geçerli değilse `None` ve IP'ye bağlı sınırlar ATLANIR (`REMOTE_ADDR` kullanılmaz: Vercel'de proxy adresi olabilir, herkes
+  tek kovaya düşerdi). **Başlığın Vercel'de bu adlarla geldiği canlıda henüz DOĞRULANMADI.**
+- Oy: `VOTE` (IP + User-Agent, her deneme sayılır) `vote` view'ının başında, 404'ten önce. Misafir için `GUEST_VOTE_PER_POLL`
+  (anket başına; yalnızca BAŞARILI oy kaydedilir, yinelenen/geçersiz sayılmaz). fetch → 429 düz metin; form → mesaj +
+  yönlendirme. Anket oluşturma: `POLL_CREATE`, yalnızca başarılı.
+- Giriş: `protect_login` hem `/giris/` hem `/admin/login/` (`config/urls.py`'de `admin.site.urls`'tan ÖNCE). Başarısız giriş =
+  HTTP 200. Kilit anahtarı `normalize_email_key` (NFKC + `upper().lower()`): ham `lower()` ile Unicode varyantları
+  (tam genişlikli, Kelvin, noktasız ı) kilidi atlatırdı. Kilit dolunca doğru parola da denenmez; mesaj hesabın varlığını
+  sızdırmaz. Bilinen bedel: biri 10 başarısız denemeyle bir hesabı 15 dk kilitleyebilir.
+- Kayıt: `REGISTER` (IP, her POST) + `RegisterForm` tuzağı (`hp_alan` boş, `form_ts` imzalı, yaş
+  `REGISTER_MIN_FILL_SECONDS`..`REGISTER_MAX_AGE_SECONDS`). Belirteç `__init__`'te denetlenir (`token_ok`) sonra yenilenir.
+  **Kayıt POST'u gönderen her test** `hp_alan: ""` ve `form_ts: make_form_token(time.time() - 10)` içermeli.
+- 429 sayfası (`429.html`) request ile çizilir. Acil durum anahtarı: `RATE_LIMITS_ENABLED=False` (Vercel ortam değişkeni +
+  yeniden deploy). `Hit` admin'de yalnızca okunur. CGNAT: mobil operatörlerde çok kişi tek IP paylaşır; oy sınırları
+  bu yüzden IP+UA ve gevşek, canlıda 429 sayısına bakılıp ayarlanır.
+- **Üretime alma sırası:** yeni tablo olduğu için `abuse` migration'ı deploy'DAN ÖNCE uygulanır (tablo yokken site çalışır
+  ama koruma sessizce kapanır ve her istekte log'a hata düşer). Canlıda doğrula: `abuse_hit`'te farklı ağlardan gelen
+  isteklerin FARKLI `subject` özetleri var mı (hepsi tek özetse IP başlığı okunamıyordur).
 
 **Üyelik akışı (`accounts/views.py`, `forms.py`)**
 - `next` yönlendirmeleri `safe_next_url()` ile doğrulanır (kayıt ve giriş aynı yardımcıyı kullanır; `LoginView`

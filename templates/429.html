@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+
+{% block title %}Biraz yavaşla — kararsızım{% endblock %}
+{% block meta_description %}Çok fazla istek gönderildi, biraz bekleyip tekrar dene.{% endblock %}
+
+{% block content %}
+  <section class="card card--soft error-page">
+    <p class="error-page__code" aria-hidden="true">429</p>
+    <h1 class="card__title">Biraz yavaşla ✋</h1>
+    <p class="muted">{{ message }} {{ wait }} sonra tekrar dene.</p>
+    <div class="error-page__actions">
+      <a class="btn btn--primary" href="{% url 'polls:feed' %}">Ana sayfaya dön</a>
+    </div>
+  </section>
+{% endblock %}

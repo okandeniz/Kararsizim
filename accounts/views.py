@@ -7,6 +7,11 @@ from django.shortcuts import redirect
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.generic import FormView
 
+from abuse.identity import ip_subject
+from abuse.limits import attempt
+from abuse.responses import rate_limited_page
+from abuse.rules import REGISTER
+
 from .forms import EmailAuthenticationForm, RegisterForm
 
 
@@ -35,6 +40,14 @@ class RegisterView(FormView):
         context = super().get_context_data(**kwargs)
         context["next"] = safe_next_url(self.request)
         return context
+
+    def post(self, request, *args, **kwargs):
+        decision = attempt(REGISTER, ip_subject(request))
+        if not decision.allowed:
+            return rate_limited_page(
+                request, decision, "Bu ağdan çok fazla kayıt denemesi yapıldı."
+            )
+        return super().post(request, *args, **kwargs)
 
     def form_valid(self, form):
         try:

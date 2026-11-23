@@ -22,4 +22,4 @@ select = ["E", "F", "I", "UP", "B", "DJ"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
-testpaths = ["accounts", "polls", "config"]
+testpaths = ["accounts", "polls", "config", "abuse"]
