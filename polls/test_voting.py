@@ -108,13 +108,13 @@ def test_unsigned_plain_uuid_cookie_is_not_trusted(client, poll):
     assert Vote.objects.get().voter_token != forged
 
 
-def test_anonymous_voter_who_logs_in_can_vote_again_known_limitation(client, poll, member):
-    # Bilinen prototip sınırlaması (plan Bölüm 4): Faz 8'de çözülecek.
-    client.post(vote_url(poll), {"option": option_id(poll)})
+def test_anonymous_voter_who_logs_in_cannot_vote_again(client, poll, member):
+    # Eskiden bilinen sınırlamaydı; artık oy birleştirme var (ayrıntılar: test_vote_merge.py).
+    client.post(vote_url(poll), {"option": option_id(poll, 0)})
     client.force_login(member)
-    client.post(vote_url(poll), {"option": option_id(poll)})
+    client.post(vote_url(poll), {"option": option_id(poll, 1)})
 
-    assert Vote.objects.count() == 2
+    assert Vote.objects.count() == 1
 
 
 # ---------- Üye oyu ----------

@@ -11,7 +11,8 @@ Proje fazlara bölünmüş geliştiriliyor. Tek doğru kaynak: `docs/KARARSIZIM_
 Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları Bölüm 8). Yalnızca
 ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts.User`, tasarım token'ları,
 kayıt/giriş/çıkış, anket oluşturma, akış ve oylama): yerelde çalışan prototip hazır. Sıradaki: Faz 5
-(Supabase + Vercel). Faz 3–4 henüz `django-reviewer` ile incelenmedi.
+(Supabase + Vercel). Faz 2–4 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne
+çekilip yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
 
 ## Ortam (Windows)
 - Sanal ortam `.venv` (Python 3.12). Komutları `.venv\Scripts\python` ile çalıştır
@@ -78,6 +79,13 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
 - Oy sahibi: üye → `user`; anonim → imzalı `voter_id` çerezi (UUID, `salt="kararsizim-voter"`, 1 yıl,
   httponly, Lax, `secure=not DEBUG`). Bozuk/sahte çerez yok sayılır ve yenisi üretilir. `voter_filter(request)`
   `Vote` filtresini verir (çerezsiz anonim için `None`).
+- **Oy birleştirme (`claim_anonymous_votes`, `polls/signals.py`):** `user_logged_in` sinyali (kayıt, giriş ve
+  admin girişi) ile tarayıcının anonim oyları hesaba bağlanır; `vote` view'ı da üyeler için aynısını oy
+  vermeden önce çağırır (sinyali kaçıran eski oturumlar için). Bağlanan oyda `voter_token` SİLİNMEZ: böylece
+  çıkış yapıp aynı çerezle aynı ankete anonim oy verilemez. Hesabın o ankette zaten oyu varsa hesabın oyu
+  kalır, anonim kopya silinir ve çerez kimliği hesabın oyuna yazılır. Başka hesaba bağlı oylara dokunulmaz.
+  **Açık kalan:** üye oy verip çıkış yaparsa anonim tekrar oy verebilir (üye oyunda çerez kimliği yok);
+  çerez silme/başka tarayıcı/gizli pencere de engellenemez (Faz 7: oran sınırı ve bot koruması).
 - **Sorgu sayısı sabit olmalı:** akış ve detay `attach_results(polls, voter)` kullanır (seçenekler `Prefetch` +
   `annotate(Count("votes"))`, ziyaretçinin oyları tek sorgu). Toplam/yüzde/lider/seçim Python'da hesaplanır
   (`poll.results`, `poll.total_votes`, `poll.has_voted`); şablonda sorgu yapma. `test_feed.py` bunu doğrular.

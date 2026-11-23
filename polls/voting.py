@@ -7,6 +7,7 @@ sayısı anket sayısından bağımsız ve sabit kalır.
 import uuid
 
 from django.conf import settings
+from django.db import IntegrityError, transaction
 from django.db.models import Count, Prefetch, prefetch_related_objects
 
 from .models import Option, Vote
@@ -104,3 +105,40 @@ def round_percent(count: int, total: int) -> int:
     if total == 0:
         return 0
     return int(count * 100 / total + 0.5)
+
+
+def claim_anonymous_votes(user, token: uuid.UUID | None) -> int:
+    """Tarayıcının (imzalı çerez kimliği) anonim oylarını `user` hesabına bağlar.
+
+    İşlenen anonim oy sayısını döner. Kurallar:
+    - O ankette hesabın oyu yoksa anonim oy hesaba geçer. Çerez kimliği (`voter_token`) oyda kalır;
+      böylece çıkış yapılıp aynı çerezle aynı ankete tekrar anonim oy verilemez.
+    - Hesabın o ankette zaten oyu varsa hesabın oyu kalır, anonim kopya silinir ve çerez kimliği
+      hesabın oyuna yazılır (aynı nedenle).
+    - Başka bir hesaba bağlanmış oylara dokunulmaz.
+    Eşzamanlı oy gibi nadir bir çakışmada hiçbir şey değişmez (girişi bozmaz).
+    """
+    if token is None:
+        return 0
+    anonymous = list(Vote.objects.filter(voter_token=token, user__isnull=True))
+    if not anonymous:
+        return 0
+
+    own = dict(
+        Vote.objects.filter(
+            user=user, poll_id__in=[vote.poll_id for vote in anonymous]
+        ).values_list("poll_id", "pk")
+    )
+    claim_ids = [vote.pk for vote in anonymous if vote.poll_id not in own]
+    duplicate_ids = [vote.pk for vote in anonymous if vote.poll_id in own]
+    own_ids = [own[vote.poll_id] for vote in anonymous if vote.poll_id in own]
+
+    try:
+        with transaction.atomic():
+            # Sıra önemli: önce kopyayı sil (çerez kimliği boşalsın), sonra kimliği hesaba yaz.
+            Vote.objects.filter(pk__in=duplicate_ids).delete()
+            Vote.objects.filter(pk__in=own_ids, voter_token__isnull=True).update(voter_token=token)
+            Vote.objects.filter(pk__in=claim_ids).update(user=user)
+    except IntegrityError:
+        return 0
+    return len(anonymous)

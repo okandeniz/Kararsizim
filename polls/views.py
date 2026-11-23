@@ -14,7 +14,13 @@ from accounts.views import safe_next_url
 
 from .forms import PollForm
 from .models import Option, Poll, Vote
-from .voting import attach_results, read_voter_token, set_voter_cookie, voter_filter
+from .voting import (
+    attach_results,
+    claim_anonymous_votes,
+    read_voter_token,
+    set_voter_cookie,
+    voter_filter,
+)
 
 POLLS_PER_PAGE = 20
 
@@ -95,6 +101,9 @@ def vote(request, pk):
     # Oy sahibi: üye → user; anonim → imzalı çerezdeki UUID (yoksa yenisi üretilir).
     new_token = None
     if request.user.is_authenticated:
+        # Bu tarayıcıdan giriş yapmadan verilmiş ve henüz hesaba bağlanmamış oy kalmış olabilir
+        # (ör. giriş sinyalinden önceki oturumlar). Önce bağla; böylece ikinci oy 409 olur.
+        claim_anonymous_votes(request.user, read_voter_token(request))
         voter = {"user": request.user}
     else:
         token = read_voter_token(request)
