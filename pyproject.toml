@@ -2,6 +2,14 @@
 name = "kararsizim"
 version = "0.1.0"
 requires-python = ">=3.12"
+# requirements.txt ile AYNI liste (Vercel pyproject.toml'dan da kurabilir). Eşitliği
+# config/test_dependencies.py doğrular; yeni bağımlılığı ikisine birden ekle.
+dependencies = [
+    "Django>=6.1,<6.2",
+    "psycopg[binary]>=3.2",
+    "dj-database-url>=2.3",
+    "python-dotenv>=1.0",
+]
 
 [tool.ruff]
 line-length = 100
@@ -14,4 +22,4 @@ select = ["E", "F", "I", "UP", "B", "DJ"]
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "config.settings"
 python_files = ["test_*.py"]
-testpaths = ["accounts", "polls"]
+testpaths = ["accounts", "polls", "config"]

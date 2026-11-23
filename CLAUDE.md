@@ -31,7 +31,7 @@ python -m ruff check . --fix && python -m ruff format .
 python manage.py check                   # bitirmeden önce geçmeli (Stop hook'u da çalıştırır)
 python manage.py check --deploy
 ```
-Testler `accounts/test_*.py` ve `polls/test_*.py` içinde (uygulama içi, `tests/` klasörü yok);
+Testler `accounts/`, `polls/` ve `config/` içinde `test_*.py` olarak durur (uygulama içi, `tests/` klasörü yok);
 pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini atlar.
 
 ## Mimari (birden fazla dosyayı okumadan görünmeyenler)
@@ -41,9 +41,14 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
 - `SECRET_KEY` yoksa yerel bir geliştirme anahtarına düşer; yalnızca `VERCEL` ortam değişkeni
   tanımlıyken (production) hata verir. Böylece `.env` olmadan da `check`/`pytest` çalışır.
 - `DATABASE_URL` boşsa SQLite. Doluysa `conn_max_age=0` + `ssl_require=True`; URL `:6543` (Supabase
-  transaction pooler) içeriyorsa `DISABLE_SERVER_SIDE_CURSORS=True` otomatik eklenir. Migration'lar
+  transaction pooler) içeriyorsa `DISABLE_SERVER_SIDE_CURSORS=True` ve `OPTIONS["prepare_threshold"]=None` otomatik eklenir
+  (Supabase transaction modu hazırlanmış ifadeleri desteklemez; psycopg3 5. sorguda otomatik hazırlardı).
+  Port `dj_database_url`'den tamsayı gelir, `DISABLE_SERVER_SIDE_CURSORS` anahtarı her zaman vardır (`False`). Migration'lar
   production'a **session pooler (5432)** ile yerelden elle uygulanır.
 - `DEBUG=False` iken secure cookie ve `SECURE_PROXY_SSL_HEADER` açılır (`SECURE_SSL_REDIRECT` kapalı; Vercel zaten HTTPS).
+- `MAILERS` (konsol backend) yalnızca `DEBUG=True` iken tanımlıdır: Django 6.1 `check --deploy` konsol backend'ini
+  hata sayar (`mail.E001`). `check --deploy`'da yalnızca `W004` (HSTS) ve `W008` (SSL redirect) uyarıları beklenir.
+- Ortam değişkeni davranışı `config/test_settings_env.py` ile test edilir (modülü reload eder; `.env` etkisiz).
 
 **Kullanıcı modeli (`accounts`)** — `AUTH_USER_MODEL = "accounts.User"`, ilk migration'dan beri.
 - Giriş alanı e-posta (`USERNAME_FIELD="email"`). `UserManager.get_by_natural_key` e-postayı
@@ -115,14 +120,22 @@ pytest ayarı `pyproject.toml`'da. `ruff` `migrations/` ve `docs/` klasörlerini
 - POST formlarında `{% csrf_token %}`, fetch'te `X-CSRFToken`. Şablonlarda `|safe` / `mark_safe` yok.
 - `.env` okunmaz/değiştirilmez (izinlerle de engelli); gizli bilgiler yalnızca ortam değişkenlerinden.
 - Arayüz metinleri Türkçe; kod, model ve değişken adları İngilizce.
-- Yeni pip bağımlılığı eklemeden önce sor.
+- Yeni pip bağımlılığı eklemeden önce sor. Üretim bağımlılıkları hem `requirements.txt` hem `pyproject.toml`
+  `dependencies` içinde tutulur (Vercel ikisinden birini kullanabilir); `config/test_dependencies.py` eşitliği
+  doğrular, ikisine birden ekle. Dev araçları (pytest, ruff) yalnızca `requirements-dev.txt`'tedir.
 - Liste sorgularında N+1'den kaçın (`select_related`, `prefetch_related`, `annotate`).
 
 ## Çalışma şekli
 - Yalnızca istenen fazı uygula, sonraki fazlara geçme. `/faz N` skill'i planı okuyup uygular.
 - Hook'lar (`.claude/settings.json`): `.py` düzenlemesinden sonra ruff format/fix çalışır ve kalan lint
   hatası olursa düzeltmeni ister; bitirmeden önce `manage.py check` çalışır, hata varsa bitirtmez.
-  Hook'lar `.venv\Scripts\python.exe` ile çalışır, PATH'e güvenmez.
+  Hook'lar `.venv\Scripts\python.exe` ile çalışır, PATH'e güvenmez. Türkçe Windows'un varsayılan kodlaması
+  cp1254'tür: hook'larda stdin/alt süreç çıktısı/stderr açıkça UTF-8 işlenir (yeni hook yazarsan
+  `subprocess.run(..., encoding="utf-8", errors="replace")` kullan; aksi halde Türkçe çıktıda çöker).
+- `manage.py check` (Stop hook'u dahil) kullanıcının `.env`'indeki hatalı `DATABASE_URL` yüzünden
+  `ImproperlyConfigured` ile düşerse `.env`'i OKUMA/değiştirme: kullanıcıdan satırı düzeltmesini ya da boşaltmasını
+  iste. Kendi doğrulamalarını `DATABASE_URL= python manage.py check` / `DATABASE_URL= python -m pytest` ile çalıştır
+  (`python-dotenv` tanımlı değişkeni ezmez; boş değer SQLite demektir).
 - Bitti saymadan önce `manage.py check` ve `python -m pytest` geçmeli; her yeni view için test yaz.
 - Fazın sonunda kısa özet ve kullanıcının elle denemesi gereken adımları yaz; `django-reviewer` alt ajanı
   fazları incelemek için tanımlı.

@@ -87,12 +87,25 @@ WSGI_APPLICATION = "config.wsgi.application"
 # Veritabanı: DATABASE_URL varsa (Supabase Postgres) onu, yoksa yerel SQLite'ı kullan.
 DATABASE_URL = os.environ.get("DATABASE_URL", "").strip()
 if DATABASE_URL:
-    DATABASES = {
-        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True),
-    }
-    # Supabase transaction pooler (port 6543) server-side cursor'ları desteklemez.
-    if ":6543" in DATABASE_URL:
+    try:
+        DATABASES = {
+            "default": dj_database_url.parse(DATABASE_URL, conn_max_age=0, ssl_require=True),
+        }
+    except (dj_database_url.ParseError, dj_database_url.UnknownSchemeError):
+        # Hata metni bilerek DATABASE_URL'i içermez (parola log'a sızmasın).
+        raise ImproperlyConfigured(
+            "DATABASE_URL geçerli bir bağlantı adresi değil. Kontrol et: adres postgresql:// ile "
+            "başlamalı; [ ] < > tırnak ve boşluk olmamalı (Supabase'deki [YOUR-PASSWORD] "
+            "köşeli parantezleriyle birlikte parolayla değiştirilmeli); parolada / # ? : @ % gibi "
+            "özel karakterler varsa URL kodlaması gerekir (%2F %23 %3F %3A %40 %25); port bir "
+            "sayı olmalı. Yalnızca yerelde SQLite kullanmak için DATABASE_URL satırını boş bırak."
+        ) from None
+    # Supabase transaction pooler (port 6543) server-side cursor'ları ve hazırlanmış ifadeleri
+    # (prepared statements) desteklemez. psycopg3 varsayılan olarak aynı sorgu 5 kez
+    # çalışınca otomatik hazırlar; bu, canlıda rastgele hatalara yol açar, o yüzden kapatılır.
+    if str(DATABASES["default"].get("PORT")) == "6543":
         DATABASES["default"]["DISABLE_SERVER_SIDE_CURSORS"] = True
+        DATABASES["default"].setdefault("OPTIONS", {})["prepare_threshold"] = None
 else:
     DATABASES = {
         "default": {
@@ -138,8 +151,12 @@ if not DEBUG:
     SECURE_SSL_REDIRECT = False
 
 
-MAILERS = {
-    "default": {
-        "BACKEND": "django.core.mail.backends.console.EmailBackend",
-    },
-}
+# Yerelde e-postalar konsola yazılır. Production'da bilerek tanımlı değil: Django 6.1'in
+# `check --deploy` kontrolü DEBUG=False iken konsol backend'ini hata sayar (mail.E001).
+# Şu an e-posta gönderen bir özellik yok; parola sıfırlama (Faz 11) için gerçek servis gerekecek.
+if DEBUG:
+    MAILERS = {
+        "default": {
+            "BACKEND": "django.core.mail.backends.console.EmailBackend",
+        },
+    }

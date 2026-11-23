@@ -45,3 +45,62 @@ python manage.py runserver          # http://127.0.0.1:8000
 
 Hepsi [.env.example](.env.example) içinde açıklanmıştır: `SECRET_KEY`, `DEBUG`, `ALLOWED_HOSTS`,
 `CSRF_TRUSTED_ORIGINS`, `DATABASE_URL`. `DATABASE_URL` boşsa yerel SQLite (`db.sqlite3`) kullanılır.
+
+## Yayına alma (Supabase + Vercel)
+
+Uygulama Vercel'de, veritabanı Supabase Postgres'te çalışır. Django doğrudan Postgres'e bağlanır;
+Supabase'in REST/GraphQL API'si ve JS istemcisi kullanılmaz.
+
+### 1. Supabase
+
+- **Data API'yi kapat** (Project Settings → Data API). Django tabloları `public` şemasında oluşur ve
+  Row Level Security kapalıdır; Data API açık kalırsa anon anahtarı olan herkes tabloları (kullanıcılar
+  dahil) okuyup değiştirebilir. Güvenlik danışmanında (Advisors → Security) `rls_disabled_in_public`
+  uyarısı kalmamalı.
+- **Connect** butonundan iki bağlantı dizesi al (`[YOUR-PASSWORD]` yerine veritabanı parolası):
+  - **Session pooler**, port **5432**: yerelden migration için.
+  - **Transaction pooler**, port **6543**: Vercel çalışma zamanı için.
+
+### 2. Migration (yerelden, session pooler ile)
+
+Transaction pooler migration için uygun değildir. Bağlantı dizesini dosyaya yazma; yalnızca o terminal
+oturumunda ortam değişkeni olarak ver:
+
+```powershell
+$env:DATABASE_URL = "<session pooler dizesi, port 5432>"
+python manage.py migrate
+python manage.py createsuperuser     # güçlü ve benzersiz bir parola kullan
+Remove-Item Env:DATABASE_URL         # yerel SQLite'a geri dön
+```
+
+Her model değişikliğinde: yerelde `makemigrations` → commit → yukarıdaki `migrate` → `git push`.
+
+### 3. Vercel
+
+**Add New → Project** ile GitHub reposunu seç; framework olarak Django algılanmalıdır
+(`config.wsgi.application` + `.python-version` ile Python 3.12). **Environment Variables:**
+
+| Değişken | Değer |
+|---|---|
+| `SECRET_KEY` | Yeni rastgele değer (yereldekinden farklı). Tanımsızsa uygulama Vercel'de başlamaz |
+| `DEBUG` | `False` |
+| `ALLOWED_HOSTS` | `.vercel.app` (özel alan adı eklersen onu da virgülle ekle) |
+| `CSRF_TRUSTED_ORIGINS` | `https://*.vercel.app` (özel alan adı için `https://alanadi.com`) |
+| `DATABASE_URL` | Supabase **transaction pooler** (port **6543**) dizesi |
+
+Port `6543` algılanınca ayarlar otomatik olarak server-side cursor'ları ve psycopg'nin hazırlanmış
+ifadelerini (prepared statements) kapatır; transaction pooler ikisini de desteklemez.
+
+### Deploy öncesi kontrol
+
+```powershell
+python -m ruff check .
+python -m pytest
+python manage.py makemigrations --check --dry-run
+```
+
+`check --deploy` için ortamı production gibi kur (güçlü bir `SECRET_KEY` ve `DEBUG=False` ile):
+`HSTS` (`security.W004`) ve `SSL redirect` (`security.W008`) uyarıları beklenir. Vercel HTTPS'i zaten
+zorunlu tutar, yönlendirme bilerek kapalıdır.
+
+Sorun giderme tablosu için [docs/KARARSIZIM_PLAN.md](docs/KARARSIZIM_PLAN.md) Bölüm 9'a bak.
