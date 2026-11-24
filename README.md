@@ -84,8 +84,8 @@ Her model değişikliğinde: yerelde `makemigrations` → commit → yukarıdaki
 |---|---|
 | `SECRET_KEY` | Yeni rastgele değer (yereldekinden farklı). Tanımsızsa uygulama Vercel'de başlamaz |
 | `DEBUG` | `False` |
-| `ALLOWED_HOSTS` | `.vercel.app` (özel alan adı eklersen onu da virgülle ekle) |
-| `CSRF_TRUSTED_ORIGINS` | `https://*.vercel.app` (özel alan adı için `https://alanadi.com`) |
+| `ALLOWED_HOSTS` | Yalnızca kendi alan adın: `proje-adin.vercel.app` (özel alan adı eklersen onu da virgülle ekle). `.vercel.app` gibi wildcard KULLANMA: başka herkesin Vercel uygulaması da kabul edilir |
+| `CSRF_TRUSTED_ORIGINS` | Yalnızca kendi kaynağın: `https://proje-adin.vercel.app` (özel alan adı için `https://alanadi.com`). `https://*.vercel.app` KULLANMA: başka herkesin Vercel uygulaması güvenilir kaynak sayılır |
 | `DATABASE_URL` | Supabase **transaction pooler** (port **6543**) dizesi |
 
 Port `6543` algılanınca ayarlar otomatik olarak server-side cursor'ları ve psycopg'nin hazırlanmış
@@ -113,8 +113,8 @@ Oy, kayıt, giriş ve anket oluşturma sınırlıdır. Sayaçlar bellekte değil
 
 | Ne | Sınır (ilk değerler) |
 |---|---|
-| Oy (üye veya misafir) | IP + tarayıcı başına dakikada 40, saatte 400 |
-| Misafir oyu | Anket başına IP + tarayıcı başına 24 saatte 10 (yalnızca başarılı oylar) |
+| Oy (üye veya misafir) | IP + tarayıcı başına dakikada 40, saatte 400; ayrıca yalnızca IP başına dakikada 150, saatte 2000 (tarayıcı bilgisi istemciden geldiği için değiştirilerek aşılmasın) |
+| Misafir oyu | Anket başına yalnızca IP başına 24 saatte 30 (yalnızca başarılı oylar; tarayıcı bilgisi katılmaz) |
 | Kayıt | IP başına saatte 10 deneme |
 | Giriş (site ve `/admin/`) | IP başına dakikada 20 ve saatte 200; e-posta başına 15 dakikada 10 **başarısız** deneme (dolunca doğru parola bile denenmez; e-posta Django'nun kimlik doğrulamasıyla aynı biçimde normalize edilir, Unicode varyantlarıyla atlatılamaz) |
 | Anket oluşturma | Kullanıcı başına saatte 10 |

@@ -17,9 +17,16 @@ DAY = timedelta(days=1)
 # kullanıcıya yer bırakır.
 VOTE = Limit("vote", ((40, MINUTE), (400, HOUR)))
 
+# Oy için yalnızca IP'ye bağlı tavan. User-Agent'ı istemci belirler; `VOTE` tek başına her istekte
+# başlığı değiştiren bir betiğe karşı işlemez. Bu tavan başlıktan bağımsızdır, CGNAT'ta bir IP'yi
+# paylaşan birçok kişiye yer bırakacak kadar geniştir.
+VOTE_IP = Limit("vote_ip", ((150, MINUTE), (2000, HOUR)))
+
 # Misafir oyu, anket başına (kapsam sonuna anket kimliği eklenir). Çerezi silip aynı ankete tekrar
-# oy vermeyi zorlaştırır. Yalnızca BAŞARILI misafir oyları sayılır.
-GUEST_VOTE_PER_POLL = Limit("guest_vote_poll", ((10, DAY),))
+# oy vermeyi zorlaştırır. Yalnızca BAŞARILI misafir oyları sayılır. Yalnızca IP'ye bağlıdır
+# (User-Agent katılmaz: değiştirilerek sınırı sıfırlamak çok kolay olurdu); aynı IP'yi paylaşan
+# gerçek kullanıcılar için gevşek tutulur, dolunca "giriş yap" mesajı gösterilir.
+GUEST_VOTE_PER_POLL = Limit("guest_vote_poll", ((30, DAY),))
 
 REGISTER = Limit("register", ((10, HOUR),))  # IP başına kayıt denemesi
 

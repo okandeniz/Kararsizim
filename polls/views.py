@@ -11,9 +11,9 @@ from django.urls import reverse
 from django.views.decorators.http import require_POST
 
 from abuse.identity import ip_subject, user_subject
-from abuse.limits import attempt, check, record
+from abuse.limits import check, record
 from abuse.responses import rate_limited_page, rate_limited_text
-from abuse.rules import GUEST_VOTE_PER_POLL, POLL_CREATE, VOTE
+from abuse.rules import GUEST_VOTE_PER_POLL, POLL_CREATE, VOTE, VOTE_IP
 from accounts.views import safe_next_url
 
 from .forms import PollForm
@@ -108,11 +108,17 @@ def vote_throttled(request, pk, decision, message):
 
 @require_POST
 def vote(request, pk):
-    # Önce hız sınırı: sel gibi gelen istekler veritabanını yormadan geri çevrilir.
+    # Önce hız sınırı: sel gibi gelen istekler veritabanını yormadan geri çevrilir. İki sınır da
+    # geçilirse ikisi birden sayılır; reddedilen deneme sayılmaz.
+    ip_only = ip_subject(request)
     agent_subject = ip_subject(request, with_agent=True)
-    decision = attempt(VOTE, agent_subject)
-    if not decision.allowed:
-        return vote_throttled(request, pk, decision, MSG_TOO_FAST)
+    throttles = ((VOTE_IP, ip_only), (VOTE, agent_subject))
+    for limit, subject in throttles:
+        decision = check(limit, subject)
+        if not decision.allowed:
+            return vote_throttled(request, pk, decision, MSG_TOO_FAST)
+    for limit, subject in throttles:
+        record(limit, subject)
 
     poll = get_object_or_404(Poll, pk=pk)
 
@@ -133,7 +139,7 @@ def vote(request, pk):
         voter = {"user": request.user}
     else:
         # Çerezi silip aynı ankete tekrar oy vermeyi zorlaştırır (yalnızca başarılı oylar sayılır).
-        decision = check(GUEST_VOTE_PER_POLL, agent_subject, suffix=str(poll.pk))
+        decision = check(GUEST_VOTE_PER_POLL, ip_only, suffix=str(poll.pk))
         if not decision.allowed:
             return vote_throttled(request, pk, decision, MSG_GUEST_LIMIT)
         token = read_voter_token(request)
@@ -152,7 +158,7 @@ def vote(request, pk):
         return vote_error(request, poll, MSG_INVALID_OPTION, status=400)
 
     if "voter_token" in voter:
-        record(GUEST_VOTE_PER_POLL, agent_subject, suffix=str(poll.pk))
+        record(GUEST_VOTE_PER_POLL, ip_only, suffix=str(poll.pk))
 
     if is_fetch_request(request):
         (poll,) = attach_results([poll], voter)

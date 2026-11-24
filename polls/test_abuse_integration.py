@@ -9,6 +9,7 @@ from django.urls import reverse
 
 from abuse.limits import Limit
 from abuse.models import Hit
+from abuse.rules import GUEST_VOTE_PER_POLL
 
 from .conftest import PASSWORD
 from .models import Poll, Vote
@@ -174,12 +175,49 @@ def test_guest_cap_counts_only_successful_votes(poll, monkeypatch):
     assert vote_as(Client(), poll).status_code == 200  # 400 sınırdan yemedi
 
 
-def test_different_user_agents_have_separate_guest_caps(poll, monkeypatch):
+def test_changing_user_agent_does_not_reset_the_guest_cap(poll, monkeypatch):
+    # User-Agent'ı istemci belirler: sınır yalnızca IP'ye bağlıdır, yoksa her istekte başlığı
+    # değiştiren bir betik sınırsız misafir oyu verirdi.
     limit_guest_votes(monkeypatch, 1)
-    vote_as(Client(), poll, HTTP_USER_AGENT="iPhone")
+    vote_as(Client(), poll, HTTP_USER_AGENT="bot-1")
 
-    assert vote_as(Client(), poll, HTTP_USER_AGENT="iPhone").status_code == 429
-    assert vote_as(Client(), poll, HTTP_USER_AGENT="Android").status_code == 200
+    assert vote_as(Client(), poll, HTTP_USER_AGENT="bot-2").status_code == 429
+
+
+def test_guest_cap_is_separate_per_ip(poll, monkeypatch):
+    limit_guest_votes(monkeypatch, 1)
+    vote_as(Client(), poll, REMOTE_ADDR="203.0.113.1")
+
+    assert vote_as(Client(), poll, REMOTE_ADDR="203.0.113.1").status_code == 429
+    assert vote_as(Client(), poll, REMOTE_ADDR="203.0.113.2").status_code == 200
+
+
+def test_rotating_user_agents_cannot_exceed_the_default_guest_cap(poll):
+    cap = GUEST_VOTE_PER_POLL.windows[0][0]
+
+    codes = [
+        vote_as(Client(), poll, HTTP_USER_AGENT=f"bot-{i}").status_code for i in range(cap + 5)
+    ]
+
+    assert codes.count(200) == cap
+    assert Vote.objects.filter(poll=poll).count() == cap
+
+
+def test_rotating_user_agents_do_not_bypass_the_ip_ceiling(poll, monkeypatch):
+    monkeypatch.setattr("polls.views.VOTE_IP", Limit("vote_ip", ((2, MINUTE),)))
+
+    codes = [vote_as(Client(), poll, HTTP_USER_AGENT=f"bot-{i}").status_code for i in range(4)]
+
+    assert codes == [200, 200, 429, 429]
+
+
+def test_ip_ceiling_applies_to_members_too(poll, member, monkeypatch):
+    monkeypatch.setattr("polls.views.VOTE_IP", Limit("vote_ip", ((1, MINUTE),)))
+    client = Client()
+    client.force_login(member)
+    vote_as(client, poll, HTTP_USER_AGENT="a")
+
+    assert vote_as(client, poll, HTTP_USER_AGENT="b").status_code == 429
 
 
 # ---------- IP kaynağı ----------

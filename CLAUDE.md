@@ -143,9 +143,12 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
   `TRUST_PROXY_IP_HEADERS` (yalnızca `VERCEL` varken) → `x-vercel-forwarded-for`, `x-forwarded-for`, `x-real-ip`; hiçbiri
   geçerli değilse `None` ve IP'ye bağlı sınırlar ATLANIR (`REMOTE_ADDR` kullanılmaz: Vercel'de proxy adresi olabilir, herkes
   tek kovaya düşerdi). **Başlığın Vercel'de bu adlarla geldiği canlıda henüz DOĞRULANMADI.**
-- Oy: `VOTE` (IP + User-Agent, her deneme sayılır) `vote` view'ının başında, 404'ten önce. Misafir için `GUEST_VOTE_PER_POLL`
-  (anket başına; yalnızca BAŞARILI oy kaydedilir, yinelenen/geçersiz sayılmaz). fetch → 429 düz metin; form → mesaj +
-  yönlendirme. Anket oluşturma: `POLL_CREATE`, yalnızca başarılı.
+- Oy: `VOTE_IP` (yalnızca IP) ve `VOTE` (IP + User-Agent), her deneme sayılır, `vote` view'ının başında, 404'ten önce.
+  **User-Agent'ı istemci belirler:** başlığı her istekte değiştiren bir betik yalnızca-UA'lı sınırların hepsini sıfırlar
+  (denendi: tek IP'den 100/100 oy geçti). Bu yüzden misafir için `GUEST_VOTE_PER_POLL` ve `VOTE_IP` UA KATMAZ; yeni bir
+  sınır eklerken anahtara istemcinin belirlediği değer (UA, çerez, başlık) koyma. `GUEST_VOTE_PER_POLL` anket başınadır;
+  yalnızca BAŞARILI oy kaydedilir, yinelenen/geçersiz sayılmaz. fetch → 429 düz metin; form → mesaj + yönlendirme.
+  Anket oluşturma: `POLL_CREATE`, yalnızca başarılı. Farklı IP kullanan saldırgan yine geçer (çerezsiz anonim oyun sınırı).
 - Giriş: `protect_login` hem `/giris/` hem `/admin/login/` (`config/urls.py`'de `admin.site.urls`'tan ÖNCE). Başarısız giriş =
   HTTP 200. Kilit anahtarı `normalize_email_key` (NFKC + `upper().lower()`): ham `lower()` ile Unicode varyantları
   (tam genişlikli, Kelvin, noktasız ı) kilidi atlatırdı. Kilit dolunca doğru parola da denenmez; mesaj hesabın varlığını
@@ -155,7 +158,7 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
   **Kayıt POST'u gönderen her test** `hp_alan: ""` ve `form_ts: make_form_token(time.time() - 10)` içermeli.
 - 429 sayfası (`429.html`) request ile çizilir. Acil durum anahtarı: `RATE_LIMITS_ENABLED=False` (Vercel ortam değişkeni +
   yeniden deploy). `Hit` admin'de yalnızca okunur. CGNAT: mobil operatörlerde çok kişi tek IP paylaşır; oy sınırları
-  bu yüzden IP+UA ve gevşek, canlıda 429 sayısına bakılıp ayarlanır.
+  bu yüzden gevşek (`VOTE` IP+UA ile kısmen ayırır, IP tavanları UA'sızdır), canlıda 429 sayısına bakılıp ayarlanır.
 - **Üretime alma sırası:** yeni tablo olduğu için `abuse` migration'ı deploy'DAN ÖNCE uygulanır (tablo yokken site çalışır
   ama koruma sessizce kapanır ve her istekte log'a hata düşer). Canlıda doğrula: `abuse_hit`'te farklı ağlardan gelen
   isteklerin FARKLI `subject` özetleri var mı (hepsi tek özetse IP başlığı okunamıyordur).
@@ -164,7 +167,9 @@ Depo herkese açık: buraya proje kimlikleri, bağlantı adresleri, parola veya 
 - `next` yönlendirmeleri `safe_next_url()` ile doğrulanır (kayıt ve giriş aynı yardımcıyı kullanır; `LoginView`
   kendi güvenli `next`'ini şablona `next` olarak verir). `/kayit/` ↔ `/giris/` bağlantıları `next`'i taşır.
 - Kayıt formu e-posta çakışmasını `iexact` kontrol eder (model `unique` büyük/küçük harfe duyarlı olduğundan
-  yoksa 500 verirdi). Giriş formu geçersiz ve pasif hesapta aynı genel mesajı gösterir.
+  yoksa 500 verirdi). **Bilinen açık (kabul edildi):** "Bu e-posta ile zaten bir hesap var." mesajı e-postanın
+  kayıtlı olup olmadığını sızdırır (IP başına saatte 10 deneme ile yavaşlatılır). E-posta servisi olmadan gerçek çözüm
+  yok (genel mesaj + e-postaya doğrulama bağlantısı gerekir); Faz 11'de (e-posta doğrulama / parola sıfırlama) çözülecek. Giriş formu geçersiz ve pasif hesapta aynı genel mesajı gösterir.
 - Çıkış `LogoutView` (yalnızca POST); header'da CSRF'li küçük form olarak durur.
 - Form alanları `templates/accounts/_field.html` ile render edilir; ipuçları Django `help_text`'i (Django
   `aria-describedby` ve `aria-invalid`'ı otomatik ekler).
