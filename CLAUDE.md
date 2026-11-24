@@ -11,11 +11,11 @@ Proje fazlara bölünmüş geliştiriliyor. Tek doğru kaynak: `docs/KARARSIZIM_
 Bölüm 4, URL haritası Bölüm 5, tasarım sistemi Bölüm 6, faz prompt'ları Bölüm 8). Yalnızca
 ihtiyaç duyduğun bölümü oku. **Durum:** Faz 0–4 bitti (iskelet, `accounts.User`, tasarım token'ları,
 kayıt/giriş/çıkış, anket oluşturma, akış ve oylama) ve Faz 5 ile uygulama **Vercel + Supabase'de canlı**
-(kayıt, giriş, anket oluşturma, üye ve misafir oyu canlıda doğrulandı). Faz 5'in kabul listesinden canlı
-görünüm (CSS) ve `/admin/` kullanıcı tarafından henüz onaylanmadı. Faz 6 (arayüz cilası, hata sayfaları,
-erişilebilirlik) canlıya alındı (deploy başarılı, görünümü kullanıcı henüz onaylamadı). Faz 7 (hız sınırları,
-giriş kilidi, kayıtta bot tuzağı: `abuse/`) kodlandı ve yerelde doğrulandı; üretime alma sırası aşağıda (migration
-ÖNCE). Sıradaki: Faz 7'nin canlıda doğrulanması, sonra plan Bölüm 8 tablosundaki Faz 9+. Faz 2–4, 6 ve 7
+(kayıt, giriş, anket oluşturma, üye ve misafir oyu, canlı görünüm (CSS) ve `/admin/` girişi canlıda kullanıcı
+tarafından doğrulandı). Faz 6 (arayüz cilası, hata sayfaları, erişilebilirlik) canlıda. Faz 7 (hız sınırları,
+giriş kilidi, kayıtta bot tuzağı: `abuse/`) canlıda: `abuse` migration'ı deploy'DAN ÖNCE uygulandı, `abuse_hit`'te
+IP'ye bağlı kayıtlar oluşuyor (Vercel IP başlığı okunuyor). Henüz görülmeyen: farklı ağlardan gelen isteklerin farklı
+`subject` özeti üretmesi. Sıradaki: plan Bölüm 8 tablosundaki Faz 9+. Faz 2–4, 6 ve 7
 `django-reviewer` ile incelendi. Plan Faz 8'deki "oy birleştirme" öne çekilip
 yapıldı (aşağıda); plan dosyasındaki "bilinen sınırlama" notu artık eski.
 
